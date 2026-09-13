@@ -1,116 +1,93 @@
-We have completed and committed the Sentinel frozen contract layer.
+We have completed and verified:
 
-Current verified baseline:
-- Commit: 3019eba
-- Message: feat: implement frozen Sentinel contracts
-- 114 tests passing
-- main pushed successfully
+- Frozen Sentinel contracts: commit 3019eba
+- Synthetic Transaction Generator: commit 2e06a42
+- 134/134 tests passing
+- compileall clean
+- main pushed
 - working tree clean
-- Transaction contract is V1.1 domain-scoped CNP e-commerce contract
-- Fact and all remaining frozen contracts are implemented and tested
 
-NOW IMPLEMENT ONLY THE NEXT BUILD CHECKPOINT:
+NOW IMPLEMENT ONLY THE NEXT CHECKPOINT:
 
-# CHECKPOINT: Synthetic Transaction Generator
+# CHECKPOINT: Detection Model + Deterministic Anomaly Tagging
 
-Reference contracts already implemented in:
-- shared/contracts/transaction.py
-- shared/contracts/case.py
-- shared/contracts/detection.py
-- shared/contracts/fact.py
-- shared/contracts/evidence.py
-- shared/contracts/reasoning.py
-- shared/contracts/policy.py
-- shared/contracts/tools.py
-- shared/contracts/events.py
-
-Reference specifications:
+Reference:
 - Sentinel_V1_Build_Architecture_v1.1.md
 - Sentinel_Technical_Design_Contracts_v1.1_FINAL_FROZEN-1.md
 - build.md
 - rules.md
+- existing shared/contracts/*
+- existing shared/generator/*
 
-IMPORTANT:
-Do NOT modify existing frozen contracts unless an actual compile/test failure proves it is necessary.
-Do NOT implement detection, Evidence Agent, Gemini reasoning, robustness, policy, Firestore persistence, Pub/Sub, BigQuery, analyst UI, or deployment in this checkpoint.
-This checkpoint is ONLY the synthetic transaction generator.
+Do NOT implement:
+- Evidence Agent
+- Gemini reasoning
+- robustness
+- policy
+- Firestore
+- Pub/Sub
+- BigQuery
+- analyst UI
+- deployment
 
-## 1. Domain constraints
+This checkpoint is ONLY detection and deterministic anomaly tagging.
 
-Generate ONLY V1 transactions:
+## 1. Detection architecture
 
-- payment_rail = CARD_CNP
-- direction = OUTGOING
-- authorization_stage = PRE_AUTH
-- card_present = false
-- channel = WEB or MOBILE
+Create a clean detection module, preferably:
 
-Entities represented by the Transaction contract:
-- customer
-- account
-- card/payment instrument
-- merchant
-- device
-- IP/location
+shared/detection/
 
-Do not generate UPI, IMPS, NEFT, RTGS, ATM, incoming/receiving-side transactions, or other out-of-scope flows.
+Separate:
 
-Every generated transaction MUST validate successfully against the existing Transaction Pydantic model.
+A. model-based risk scoring
+B. deterministic anomaly tagging
 
-## 2. Generator design
+The detection layer must consume the existing V1 Transaction and generated historical/profile data.
 
-Create a deterministic, seedable synthetic transaction generator under an appropriate location, preferably:
+It must produce the existing DetectionOutput contract.
 
-shared/generator/
+Do NOT modify the frozen DetectionOutput contract unless an actual test/compile failure proves it is necessary.
 
-Use a clean separation between:
-- entity/profile generation
-- transaction generation
-- seeded scenario generation
+## 2. DetectionOutput
 
-The generator must support:
-- configurable random seed
-- configurable number of transactions
-- reproducible output for the same seed
-- realistic but synthetic data
-- UTC timestamps
-- Decimal transaction amounts
-- valid currency
-- valid enum values
-- valid geo coordinates
-- stable IDs linking related transactions to the same customer/account/card/merchant/device
+Use the existing contract exactly.
 
-Do NOT use external APIs or real customer data.
+The output must include the appropriate:
+- risk score
+- risk band
+- anomaly tags
+- model metadata/version as defined by the existing contract
 
-## 3. Normal baseline data
+Do not invent a second competing detection output model.
 
-Generate realistic normal customer behavior, including variation in:
-- transaction amount
-- merchant
-- merchant category
-- timestamp
-- device
-- IP/location
-- WEB/MOBILE channel
+## 3. Risk scoring
 
-The data should not be uniformly random nonsense.
+Implement a deterministic, reproducible V1 detection model suitable for synthetic data.
 
-Create customer profiles so that repeated transactions from the same customer establish a meaningful behavioral baseline.
+A simple explainable ML approach is acceptable, such as an sklearn model, provided it is actually trained/fitted and used for prediction.
 
-For example, a customer may normally:
-- transact from a familiar device
-- transact from a familiar geography
-- transact within a normal amount range
-- transact during a normal time window
-- use a small set of merchants/categories
+Do NOT use Gemini for detection.
 
-The exact synthetic distributions are implementation decisions, but keep them explainable and deterministic.
+Do NOT call an external fraud API.
 
-## 4. Required seeded anomaly scenarios
+Do NOT claim production-grade fraud accuracy.
 
-The generator MUST support deterministic seeded scenarios that will later be consumed by the detection layer.
+The goal is a working prototype demonstrating:
+transaction → detection score + signals.
 
-At minimum provide explicit scenarios for:
+Ensure:
+- deterministic random state
+- reproducible training/prediction
+- clear model version
+- no data leakage from future transaction information
+- model can be trained from synthetic historical data
+
+Use a clean training/prediction API.
+
+## 4. Deterministic anomaly tagging
+
+Implement deterministic rules for the 8 V1 anomaly tags:
 
 1. NEW_DEVICE
 2. UNUSUAL_LOCATION
@@ -121,159 +98,185 @@ At minimum provide explicit scenarios for:
 7. LINKED_ENTITY_ANOMALY
 8. KYC_ANOMALY
 
-Do NOT implement detection logic here.
+These rules must be explainable and deterministic.
 
-The generator's responsibility is simply to create transactions/profiles whose data can later produce those anomaly conditions.
+Use the generated synthetic profiles/scenarios as the source of the underlying signals.
 
-Where useful, expose scenario metadata separately from the Transaction object so tests and future evaluation code can identify what was intentionally seeded.
+Do NOT simply copy a scenario name into the output.
 
-Do not put artificial anomaly tags into Transaction itself.
+The tag must be derived from actual transaction/history/profile data.
 
-## 5. Mandatory Sentinel demo scenario
+## 5. Important tag semantics
 
-Create one deterministic flagship scenario matching the V1.1 architecture:
+Implement clear, documented rules.
+
+Examples:
+
+NEW_DEVICE:
+- transaction device is not established in the customer's historical device set.
+
+UNUSUAL_LOCATION:
+- transaction location materially differs from the customer's established location baseline.
+
+UNUSUAL_AMOUNT:
+- transaction amount is materially outside the customer's historical spending distribution.
+
+UNUSUAL_TIME:
+- transaction timestamp is outside the customer's established normal transaction-time window.
+
+IMPOSSIBLE_TRAVEL:
+- recent transactions for the same customer/device imply physically impossible travel velocity.
+
+MERCHANT_RISK:
+- merchant profile has the seeded merchant-risk indicators required by V1.
+
+LINKED_ENTITY_ANOMALY:
+- transaction/customer/account/device relationship is linked to another suspicious entity in the synthetic evidence/profile data.
+
+KYC_ANOMALY:
+- synthetic customer KYC status is anomalous.
+
+The exact thresholds should be explicit constants/configuration, not magic numbers buried in functions.
+
+## 6. No false coupling to future agents
+
+Detection must NOT:
+- call Evidence Agent tools
+- call Gemini
+- call policy
+- determine AUTO_RESOLVE
+- determine ESCALATE
+- determine BLOCK_HOLD
+- make a final fraud verdict
+
+Detection only returns signals and risk assessment.
+
+## 7. Demo scenario requirements
+
+The existing flagship:
+
+seeded_demo_case()
+
+must produce detection output containing the intended signals:
 
 - NEW_DEVICE
 - UNUSUAL_LOCATION
 - MERCHANT_RISK
 
-It must also contain the branching hook required by the architecture:
+Verify these are generated from the actual seeded data.
 
-The seeded device must have evidence indicating that the same device is associated with another account/customer so that later:
+Also verify each of the other 7 scenarios independently produces its intended anomaly tag.
 
-NEW_DEVICE
-→ get_device_history
-→ discovers device relationship
-→ Evidence Agent independently chooses get_linked_entities
+Do not weaken the rules merely to make tests pass.
 
-The generator does NOT implement the Evidence Agent.
+## 8. Tests
 
-It only needs to generate the underlying synthetic entities/data necessary for this later branch.
+Create:
 
-Make this scenario easy to invoke by name, for example:
-
-seeded_demo_case()
-
-or an equivalent clean API.
-
-## 6. Data quality requirements
-
-Ensure:
-- IDs are unique where they should be unique.
-- Related entities reuse IDs correctly.
-- No accidental duplicate transaction IDs.
-- timestamps are timezone-aware UTC.
-- amount is Decimal.
-- geo lat/lon are valid.
-- currency is valid.
-- all enum values come from existing contracts.
-- all generated transactions pass Pydantic validation.
-- no real PII.
-- no secrets.
-- no external network dependency.
-
-Do not overengineer this.
-
-## 7. Tests
-
-Create focused tests under:
-
-tests/generator/
+tests/detection/
 
 Test at minimum:
 
-1. Generated transaction validates against Transaction.
-2. Same seed produces identical generated dataset.
-3. Different seeds produce different datasets.
-4. Requested transaction count is respected.
-5. Transaction IDs are unique.
-6. Required V1 domain fields are always correct.
-7. Amounts are Decimal.
-8. timestamps are UTC/timezone-aware.
-9. geo values are valid.
-10. customer/account/card relationships are consistent.
-11. normal baseline scenario is reproducible.
-12. each required seeded scenario is reproducible.
-13. flagship demo scenario contains:
-    - new device relationship
-    - unusual location setup
-    - merchant-risk setup
-    - cross-account/device relationship needed for later branching
+1. DetectionOutput validates.
+2. Same input produces same detection output.
+3. Different meaningful inputs can change the risk score.
+4. Risk score remains within the contract's expected range.
+5. Risk band is deterministic.
+6. NEW_DEVICE is detected from actual device history.
+7. UNUSUAL_LOCATION is detected from actual location baseline.
+8. UNUSUAL_AMOUNT is detected from actual spending baseline.
+9. UNUSUAL_TIME is detected from actual historical time behavior.
+10. IMPOSSIBLE_TRAVEL is detected from actual recent transaction locations/timestamps.
+11. MERCHANT_RISK is detected from actual merchant-risk data.
+12. LINKED_ENTITY_ANOMALY is detected from actual entity relationships.
+13. KYC_ANOMALY is detected from actual KYC data.
+14. Flagship demo produces exactly the intended primary anomaly signals:
+    NEW_DEVICE + UNUSUAL_LOCATION + MERCHANT_RISK
+    and does not accidentally require the Evidence Agent.
+15. Detection does not produce policy outcomes.
+16. No Gemini/network calls are made by detection tests.
+17. Existing 134 tests continue passing.
 
-Do NOT test detection tags because detection is not implemented yet.
+## 9. Testing quality
 
-## 8. API quality
+Do not create fake tests that merely inspect constants.
 
-Provide a small, clean public API from the generator package.
+Tests should construct or use real generated data and exercise the actual detection logic.
 
-Prefer something conceptually like:
+Test negative/baseline cases where appropriate so the rules are shown to distinguish normal behavior from seeded anomalies.
 
-generate_transactions(...)
-generate_scenario(...)
-seeded_demo_case(...)
+## 10. Verification
 
-Use type hints and concise docstrings.
+Run:
 
-Do not expose unnecessary implementation details.
+pytest tests -v
 
-## 9. Verification
+Then:
 
-After implementation:
+python -m compileall shared tests
 
-1. Run all tests:
-   pytest
+Then perform a real smoke test:
 
-2. Run compile verification:
-   python -m compileall shared tests
+- generate normal transaction/history
+- run detection
+- generate flagship demo
+- run detection
+- print DetectionOutput
+- confirm intended tags and risk result
 
-3. Run a small generator smoke test.
+Inspect:
 
-4. Inspect the generated output and verify it conforms to the V1.1 Transaction contract.
-
-5. Verify the flagship demo scenario manually from the generated data.
-
-6. Run:
-   git status
-   git diff --stat
-   git diff
+git status
+git diff --stat
+git diff
 
 Do not modify unrelated files.
 
-## 10. Git discipline
+## 11. Git
 
-After all tests and verification pass:
+After all verification succeeds:
 
-- Stage ONLY files belonging to this Synthetic Transaction Generator checkpoint.
-- Do not stage .env, credentials, .venv, caches, IDE files, temporary files, or generated datasets unless a small fixture is intentionally required by tests.
-- Do not amend previous commits.
-- Do not force push.
+Stage ONLY detection implementation/tests and any directly necessary documentation changes.
 
-Commit with EXACT message:
+Do not stage:
+- .env
+- credentials
+- .venv
+- caches
+- IDE files
+- generated datasets
+- unrelated modifications
 
-feat: add synthetic transaction generator
+Commit exactly:
 
-Then push:
+feat: add fraud detection and anomaly tagging
+
+Push:
 
 git push origin main
 
-Finally verify:
+Then verify:
 
 git status
 git log -2 --oneline
 
+Do not amend previous commits.
+Do not force push.
+
 ## FINAL REPORT
 
-Return a concise report containing:
+Return:
 
 A. Files created/modified
-B. Generator capabilities
-C. Seeded scenarios implemented
-D. Flagship demo scenario verification
-E. Test result
-F. Compile result
-G. Commit hash
-H. Push result
-I. Final git status
-J. Any issues
+B. Detection model approach
+C. Deterministic anomaly-tag rules
+D. Flagship scenario detection result
+E. All 8 scenario results
+F. Test result
+G. Compile result
+H. Commit hash
+I. Push result
+J. Final git status
+K. Any issues
 
-Do not claim anything as complete unless it was actually verified.
+Do not claim completion unless every verification step actually passed.
