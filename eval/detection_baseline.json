@@ -1,0 +1,38 @@
+{
+  "model_metadata": {
+    "model_type": "sklearn.linear_model.LogisticRegression",
+    "model_path": "models/sentinel_baseline_model.joblib",
+    "model_sha256": "fcb2d0ff614d3971b16ad0e30c7d38d3abe0810cf82b8032cf849ffea02e5fe5"
+  },
+  "evaluation_dataset": {
+    "x_held_out_path": "data/processed/X_held_out.parquet",
+    "x_held_out_sha256": "9f57cc21b8461d0a8b712d20250cb504016ae0cac84fe16382e4ed7de6d36fc1",
+    "y_held_out_path": "data/processed/y_held_out.csv",
+    "y_held_out_sha256": "c558d0c3dc8d4f4e0d61b2a06d07509cd963c526c143e59eaf55b5fdb78c4a3b",
+    "total_rows": 56962,
+    "total_features": 33,
+    "legitimate_count": 56864,
+    "fraud_count": 98,
+    "fraud_ratio": 0.0017204452090867595
+  },
+  "metrics": {
+    "precision": 0.05772931366260423,
+    "recall": 0.9183673469387755,
+    "roc_auc": 0.9723384939935457,
+    "pr_auc": 0.7189807258841476,
+    "false_negative_rate": 0.08163265306122448
+  },
+  "confusion_matrix": {
+    "true_positives": 90,
+    "false_positives": 1469,
+    "true_negatives": 55395,
+    "false_negatives": 8
+  },
+  "leakage_and_governance_confirmation": {
+    "held_out_data_used_exclusively_for_evaluation": true,
+    "model_retraining_performed": false,
+    "hyperparameter_tuning_performed": false,
+    "feature_engineering_modified": false,
+    "risk_bands_derived": false
+  }
+}

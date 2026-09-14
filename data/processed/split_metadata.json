@@ -1,0 +1,42 @@
+{
+  "dataset_name": "Credit Card Fraud Detection (ULB / OpenML 42175)",
+  "raw_file": "data/raw/creditcard.csv",
+  "raw_sha256": "33a178be65174943a07d1736acf5898f6c8e1fa80950dbbe598c17eda968ec59",
+  "raw_size_bytes": 102634230,
+  "split_configuration": {
+    "random_seed": 42,
+    "test_size": 0.2,
+    "train_ratio": 0.8,
+    "stratified": true,
+    "stratify_column": "Class",
+    "shuffle": true
+  },
+  "total_rows": 284807,
+  "total_columns": 31,
+  "raw_distribution": {
+    "legitimate_count": 284315,
+    "fraud_count": 492,
+    "fraud_ratio": 0.001727485630620034
+  },
+  "train_set": {
+    "filename": "train.csv",
+    "total_rows": 227845,
+    "legitimate_count": 227451,
+    "fraud_count": 394,
+    "fraud_ratio": 0.001729245759178389,
+    "percentage_of_total": 0.7999978933102065
+  },
+  "held_out_set": {
+    "filename": "held_out.csv",
+    "total_rows": 56962,
+    "legitimate_count": 56864,
+    "fraud_count": 98,
+    "fraud_ratio": 0.0017204452090867595,
+    "percentage_of_total": 0.20000210668979343
+  },
+  "leakage_verification": {
+    "index_overlap_count": 0,
+    "leakage_detected": false,
+    "raw_file_unchanged": true
+  }
+}

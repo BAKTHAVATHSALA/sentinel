@@ -1,0 +1,47 @@
+{
+  "title": "Sentinel Real Fraud Dataset Feature Mapping",
+  "description": "Mapping from raw credit card transaction columns to Sentinel detection feature space",
+  "source_columns": {
+    "Amount": "Transaction monetary amount (raw EUR/USD value)",
+    "Time": "Elapsed seconds from dataset origin across 48-hour window",
+    "V1_to_V28": "28 PCA-derived anonymized latent components representing cardholder/device/merchant signals",
+    "Class": "Ground truth fraud label (0=legitimate, 1=fraudulent)"
+  },
+  "engineered_features": {
+    "amount_scaled": "Z-score normalized Amount using training set mean (88.1763) and std (250.7226)",
+    "amount_log1p": "Natural log transformation log(1 + Amount) handling heavy-tailed amounts",
+    "hour_of_day": "Cyclic 24-hour hour-of-day integer [0..23] derived as (Time // 3600) % 24",
+    "time_sin": "Continuous cyclic sine representation: sin(2 * pi * hour / 24)",
+    "time_cos": "Continuous cyclic cosine representation: cos(2 * pi * hour / 24)",
+    "V1_to_V28": "28 numerical continuous PCA features with missing value imputation via training medians"
+  },
+  "target_variable": {
+    "column_name": "Class",
+    "type": "int64",
+    "values": {
+      "0": "Legitimate transaction",
+      "1": "Fraudulent transaction"
+    },
+    "storage": "Preserved strictly as separate target vector (y_train, y_held_out)"
+  },
+  "partitions": {
+    "train": {
+      "rows": 227845,
+      "features": 33,
+      "fraud_count": 394,
+      "legit_count": 227451
+    },
+    "held_out": {
+      "rows": 56962,
+      "features": 33,
+      "fraud_count": 98,
+      "legit_count": 56864
+    }
+  },
+  "leakage_safeguards": [
+    "Fitted parameters computed strictly from train.csv",
+    "Held-out set never accessed during fit()",
+    "Zero index overlap between train and held-out partitions",
+    "Exact frozen parameters serialized for future model evaluation"
+  ]
+}

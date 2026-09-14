@@ -30,3 +30,27 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Data / Datasets
+data/raw/*
+!data/raw/README.md
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/README.md
+!data/processed/split_metadata.json
+!data/processed/feature_mapping.json
+!data/processed/preprocessor_params.json
+!data/processed/.gitkeep
+*.csv
+*.arff
+*.parquet
+
+# Models / Artifacts
+models/*.joblib
+models/*.pkl
+models/*.pickle
+!models/README.md
+!models/model_metadata.json
+!models/.gitkeep
+*.joblib
+*.pkl

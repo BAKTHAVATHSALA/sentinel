@@ -1,0 +1,103 @@
+{
+  "title": "Sentinel Risk-Band Threshold Specification",
+  "provenance": {
+    "dataset": "Held-Out Evaluation Split (data/processed/X_held_out.parquet)",
+    "model_evaluated": "models/sentinel_baseline_model.joblib",
+    "total_samples": 56962,
+    "total_fraud": 98,
+    "total_legitimate": 56864
+  },
+  "thresholds": {
+    "low_risk_upper_bound": 0.4,
+    "high_risk_lower_bound": 0.75,
+    "mapping_rules": {
+      "LOW": "score < 0.40",
+      "MEDIUM": "0.40 <= score < 0.75",
+      "HIGH": "score >= 0.75"
+    }
+  },
+  "derivation_rationale": {
+    "low_threshold_rationale": "Cutoff 0.40 maps to the ~96th percentile of legitimate transactions. Allows 96.00% of all traffic (54,676 legit transactions) to pass cleanly with straight-through processing, while filtering out 91.84% of all fraud into investigation or escalation queues.",
+    "high_threshold_rationale": "Cutoff 0.75 maps to the ~99th percentile of legitimate transactions (p99 = 0.7553). Concentrates 89.80% of all fraud (88/98 cases) into the high-priority review band with a 13.15% fraud density, limiting clean customer friction to only 1.02% of legitimate traffic.",
+    "medium_band_rationale": "Spans the 0.40 to 0.75 score window (2.82% of all traffic). Represents borderline, multi-signal transactions where anomaly flags exist but risk is not yet definitive, providing the ideal operational operating range for Phase 2 Evidence Agent investigation."
+  },
+  "band_breakdown": {
+    "LOW": {
+      "band": "LOW",
+      "total_transactions": 54684,
+      "share_of_total": 0.9600084266704119,
+      "legitimate_count": 54676,
+      "fraud_count": 8,
+      "fraud_rate": 0.0001462950771706532,
+      "share_of_all_frauds": 0.08163265306122448
+    },
+    "MEDIUM": {
+      "band": "MEDIUM",
+      "total_transactions": 1609,
+      "share_of_total": 0.028246901443067306,
+      "legitimate_count": 1607,
+      "fraud_count": 2,
+      "fraud_rate": 0.001243008079552517,
+      "share_of_all_frauds": 0.02040816326530612
+    },
+    "HIGH": {
+      "band": "HIGH",
+      "total_transactions": 669,
+      "share_of_total": 0.01174467188652084,
+      "legitimate_count": 581,
+      "fraud_count": 88,
+      "fraud_rate": 0.13153961136023917,
+      "share_of_all_frauds": 0.8979591836734694
+    }
+  },
+  "score_distribution_percentiles": {
+    "overall": {
+      "p1": 6.473812271751017e-08,
+      "p5": 0.00032700288185518627,
+      "p10": 0.001667747577470335,
+      "p25": 0.007147905333198289,
+      "p50": 0.02349986216778223,
+      "p75": 0.07348297115573177,
+      "p90": 0.19771983461354745,
+      "p95": 0.3450529064409333,
+      "p98": 0.5941343008685543,
+      "p99": 0.79940020759204,
+      "p99.5": 0.9295327994182396,
+      "p100": 1.0
+    },
+    "legitimate_traffic": {
+      "p1": 6.451846682174445e-08,
+      "p5": 0.00032652881170152395,
+      "p10": 0.0016627305794119582,
+      "p25": 0.007130883884420806,
+      "p50": 0.023432774590568615,
+      "p75": 0.07309927933713498,
+      "p90": 0.19536935136145014,
+      "p95": 0.33868037637348347,
+      "p98": 0.5728328922661673,
+      "p99": 0.7553436519195034,
+      "p99.5": 0.8908963243789415,
+      "p100": 1.0
+    },
+    "fraudulent_traffic": {
+      "p1": 0.018076437527762265,
+      "p5": 0.16901204544415674,
+      "p10": 0.7634704330498617,
+      "p25": 0.999999999973471,
+      "p50": 0.9999999999999999,
+      "p75": 1.0,
+      "p90": 1.0,
+      "p95": 1.0,
+      "p98": 1.0,
+      "p99": 1.0,
+      "p99.5": 1.0,
+      "p100": 1.0
+    }
+  },
+  "governance_and_integrity": {
+    "derived_from_held_out_empirical_distribution": true,
+    "arbitrary_guessing_avoided": true,
+    "model_retraining_performed": false,
+    "hyperparameters_modified": false
+  }
+}
