@@ -1,0 +1,298 @@
+{
+  "scenario": "branching_proof",
+  "run_count": 10,
+  "required_first_tool": "get_device_history",
+  "branch_tool": "get_linked_entities",
+  "summary": {
+    "device_history_called_first_rate": "10/10",
+    "branching_success_rate": "10/10",
+    "evidence_floor_complete_rate": "10/10",
+    "headline": "Evidence Agent branching success rate: 10/10"
+  },
+  "runs": [
+    {
+      "run_index": 1,
+      "case_id": "case_branching_proof_run_01",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_ip_geovelocity",
+        "get_merchant_risk",
+        "get_behavioral_baseline",
+        "get_mock_kyc_status"
+      ],
+      "stopped_reason": "MAX_CALLS",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_ip_geovelocity (resolved on attempt 1)",
+        "Called get_merchant_risk (resolved on attempt 1)",
+        "Called get_behavioral_baseline (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)"
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:39:30.287535+00:00",
+      "finished_at": "2026-09-14T17:39:46.134029+00:00",
+      "duration_seconds": 15.846494
+    },
+    {
+      "run_index": 2,
+      "case_id": "case_branching_proof_run_02",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status",
+        "get_ip_geovelocity",
+        "get_behavioral_baseline",
+        "get_merchant_risk"
+      ],
+      "stopped_reason": "MAX_CALLS",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "Called get_ip_geovelocity (resolved on attempt 1)",
+        "Called get_behavioral_baseline (resolved on attempt 1)",
+        "Called get_merchant_risk (resolved on attempt 1)"
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:39:46.606382+00:00",
+      "finished_at": "2026-09-14T17:40:07.753723+00:00",
+      "duration_seconds": 21.147341
+    },
+    {
+      "run_index": 3,
+      "case_id": "case_branching_proof_run_03",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status"
+      ],
+      "stopped_reason": "SUFFICIENT_EVIDENCE",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "The evidence gathered is sufficient to understand the context of the new device and the associated customer's risk profile."
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:40:08.188284+00:00",
+      "finished_at": "2026-09-14T17:40:18.657765+00:00",
+      "duration_seconds": 10.469481
+    },
+    {
+      "run_index": 4,
+      "case_id": "case_branching_proof_run_04",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status",
+        "get_ip_geovelocity",
+        "get_behavioral_baseline",
+        "get_merchant_risk"
+      ],
+      "stopped_reason": "MAX_CALLS",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "Called get_ip_geovelocity (resolved on attempt 1)",
+        "Called get_behavioral_baseline (resolved on attempt 1)",
+        "Called get_merchant_risk (resolved on attempt 1)"
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:40:19.139987+00:00",
+      "finished_at": "2026-09-14T17:40:47.825264+00:00",
+      "duration_seconds": 28.685277
+    },
+    {
+      "run_index": 5,
+      "case_id": "case_branching_proof_run_05",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_linked_entities",
+        "get_mock_kyc_status",
+        "get_ip_geovelocity",
+        "get_merchant_risk"
+      ],
+      "stopped_reason": "MAX_CALLS",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "Called get_ip_geovelocity (resolved on attempt 1)",
+        "Called get_merchant_risk (resolved on attempt 1)"
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:40:48.239371+00:00",
+      "finished_at": "2026-09-14T17:41:06.416989+00:00",
+      "duration_seconds": 18.177618
+    },
+    {
+      "run_index": 6,
+      "case_id": "case_branching_proof_run_06",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status"
+      ],
+      "stopped_reason": "SUFFICIENT_EVIDENCE",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "The evidence is sufficient because the transaction device is new for the primary customer, was recently used by a secondary customer with a different account, and that secondary customer and their account are flagged for KYC review."
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:41:06.874152+00:00",
+      "finished_at": "2026-09-14T17:41:23.389510+00:00",
+      "duration_seconds": 16.515358
+    },
+    {
+      "run_index": 7,
+      "case_id": "case_branching_proof_run_07",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_linked_entities",
+        "get_mock_kyc_status"
+      ],
+      "stopped_reason": "SUFFICIENT_EVIDENCE",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "The evidence is sufficient as the device used in the transaction is new to the primary customer and has been recently seen on another account belonging to a customer with a \"KYC_STATUS_REVIEW\" flag."
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:41:23.779592+00:00",
+      "finished_at": "2026-09-14T17:41:40.531653+00:00",
+      "duration_seconds": 16.752061
+    },
+    {
+      "run_index": 8,
+      "case_id": "case_branching_proof_run_08",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status",
+        "get_behavioral_baseline",
+        "get_ip_geovelocity",
+        "get_merchant_risk"
+      ],
+      "stopped_reason": "MAX_CALLS",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "Called get_behavioral_baseline (resolved on attempt 1)",
+        "Called get_ip_geovelocity (resolved on attempt 1)",
+        "Called get_merchant_risk (resolved on attempt 1)"
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:41:40.958134+00:00",
+      "finished_at": "2026-09-14T17:42:01.578471+00:00",
+      "duration_seconds": 20.620337
+    },
+    {
+      "run_index": 9,
+      "case_id": "case_branching_proof_run_09",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status"
+      ],
+      "stopped_reason": "SUFFICIENT_EVIDENCE",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "The evidence is sufficient because it establishes a link between the transaction's device and another customer with a \"REVIEW\" KYC status, indicating a potential fraud ring or account takeover."
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:42:01.927054+00:00",
+      "finished_at": "2026-09-14T17:42:11.573780+00:00",
+      "duration_seconds": 9.646726
+    },
+    {
+      "run_index": 10,
+      "case_id": "case_branching_proof_run_10",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status",
+        "get_ip_geovelocity",
+        "get_behavioral_baseline",
+        "get_merchant_risk"
+      ],
+      "stopped_reason": "MAX_CALLS",
+      "selection_reasons": [
+        "Called get_device_history (resolved on attempt 1)",
+        "Called get_linked_entities (resolved on attempt 1)",
+        "Called get_mock_kyc_status (resolved on attempt 1)",
+        "Called get_ip_geovelocity (resolved on attempt 1)",
+        "Called get_behavioral_baseline (resolved on attempt 1)",
+        "Called get_merchant_risk (resolved on attempt 1)"
+      ],
+      "completeness": "COMPLETE",
+      "missing_required_evidence": [],
+      "called_device_history_first": true,
+      "branched_to_linked_entities": true,
+      "model_name": "gemini-2.5-flash",
+      "model_version": "gemini-2.5-flash",
+      "started_at": "2026-09-14T17:42:11.939865+00:00",
+      "finished_at": "2026-09-14T17:42:32.682549+00:00",
+      "duration_seconds": 20.742684
+    }
+  ],
+  "fixed_mapping_failure_pattern_note": "A fake/fixed-mapping agent would hard-code a rule like 'if the NEW_DEVICE tag is present, always call get_device_history then get_linked_entities' -- it would branch 10/10 times for a reason that has nothing to do with what get_device_history actually returned, and it would branch identically even if the device_history fixture were changed to show no cross-account signal at all. This implementation never encodes get_linked_entities as a required or expected follow-up anywhere in the system prompt or in code: shared/evidence/floor.py's minimum-evidence floor for NEW_DEVICE requires only get_device_history, and the agent's system prompt (shared/evidence/agent.py, _system_instruction) only gives the general instruction to follow up on 'a relationship...that looks materially relevant', which names no specific tool and would apply identically to any anomaly tag. Whether Gemini calls get_linked_entities is decided at inference time, by reading the actual device_risk_signals content (SEEN_ON_DIFFERENT_ACCOUNT) returned by the real get_device_history tool call -- if that signal were absent from the fixture, there would be nothing in the conversation prompting the follow-up. That is what makes this genuinely agentic rather than a fixed mapping, and it is exactly why this proof requires repeated real runs (this script) rather than resting on a single successful run.",
+  "generated_at": "2026-09-14T17:42:32.686417+00:00"
+}
