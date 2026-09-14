@@ -292,6 +292,236 @@ def generate_kyc_anomaly_scenario(rng: random.Random) -> ScenarioResult:
     )
 
 
+def generate_clean_scenario(rng: random.Random) -> ScenarioResult:
+    """Generate a fully clean/normal transaction that triggers zero anomaly tags.
+
+    Known device, home location, typical amount, low-risk merchant, verified KYC,
+    no linked accounts -- intended to AUTO_RESOLVE with an empty evidence
+    investigation (Contracts v1.2 Policy rule P-005).
+    """
+    customer = create_customer_profile("cust_sc_clean", rng, city_idx=1)
+    merchant = create_merchant_profile("merch_standard_clean")
+    baseline = generate_normal_transactions(customer, [merchant], count=8, rng=rng)
+
+    target_time = baseline[-1].timestamp + timedelta(hours=10)
+    target_tx = generate_single_transaction(
+        transaction_id="tx_sc_clean_normal",
+        customer=customer,
+        merchant=merchant,
+        amount=customer.typical_amount_mean,
+        timestamp=target_time,
+    )
+
+    return ScenarioResult(
+        scenario_name="CLEAN_NORMAL",
+        target_transaction=target_tx,
+        baseline_transactions=baseline,
+        customer_profile=customer,
+        merchant_profile=merchant,
+        metadata={
+            "seeded_anomaly": "NONE",
+            "expected_anomaly_tags": [],
+            "expected_policy_outcome": "AUTO_RESOLVE",
+        },
+    )
+
+
+def generate_branching_proof_scenario(rng: random.Random) -> ScenarioResult:
+    """Generate the branching-proof scenario: ONLY NEW_DEVICE fires at detection time.
+
+    Seeds get_device_history / get_linked_entities fixture data (for the Phase 2
+    Evidence Agent) showing this device was also seen on a *different* account 2
+    hours earlier, and that the linked account carries a recent anomaly -- a
+    relationship the agent must discover and choose to follow on its own.
+
+    Nothing in the minimum-evidence floor for NEW_DEVICE alone (Contracts v1.2
+    S11.4: NEW_DEVICE -> get_device_history only) requires calling
+    get_linked_entities, so any such call is genuine agentic branching, not a
+    fixed-mapping artifact.
+    """
+    customer = create_customer_profile("cust_sc_branch_primary", rng, city_idx=0)
+    merchant = create_merchant_profile("merch_standard_branch")
+    baseline = generate_normal_transactions(customer, [merchant], count=10, rng=rng)
+
+    # Secondary/linked customer whose account the shared device also touched.
+    secondary_customer = create_customer_profile(
+        "cust_sc_branch_secondary", rng, city_idx=4, kyc_status="REVIEW"
+    )
+
+    target_time = baseline[-1].timestamp + timedelta(hours=6)
+    shared_device_id = f"dev_branch_shared_{rng.randint(70000, 79999)}"
+    device_seen_on_secondary = target_time - timedelta(hours=2)
+
+    target_tx = generate_single_transaction(
+        transaction_id="tx_sc_branching_proof",
+        customer=customer,
+        merchant=merchant,
+        amount=customer.typical_amount_mean,
+        timestamp=target_time,
+        device_id=shared_device_id,
+    )
+
+    return ScenarioResult(
+        scenario_name="BRANCHING_PROOF",
+        target_transaction=target_tx,
+        baseline_transactions=baseline,
+        customer_profile=customer,
+        merchant_profile=merchant,
+        secondary_profile=secondary_customer,
+        metadata={
+            "seeded_anomaly": "NEW_DEVICE",
+            "expected_anomaly_tags": ["NEW_DEVICE"],
+            "expected_policy_outcome": "ESCALATE",
+            "minimum_evidence_floor_for_new_device": ["get_device_history"],
+            "floor_requires_get_linked_entities": False,
+            "branching_hook_note": (
+                "The agent must discover the cross-account device link on its own by "
+                "inspecting get_device_history's result and choosing to call "
+                "get_linked_entities -- the NEW_DEVICE floor alone never requires it."
+            ),
+            "device_history_fixture": {
+                "device_id": shared_device_id,
+                "customer_id": customer.customer_id,
+                "known_device": False,
+                "first_seen_at": device_seen_on_secondary.isoformat(),
+                "last_seen_at": target_time.isoformat(),
+                "transaction_count": 1,
+                "device_risk_signals": [
+                    {
+                        "signal": "SEEN_ON_DIFFERENT_ACCOUNT",
+                        "other_account_id": secondary_customer.account_id,
+                        "other_customer_id": secondary_customer.customer_id,
+                        "seen_at": device_seen_on_secondary.isoformat(),
+                        "hours_before_target": 2,
+                    }
+                ],
+                "source_record_ids": ["dvc_rec_branch_001"],
+            },
+            "linked_entities_fixture": {
+                "entity_id": secondary_customer.account_id,
+                "relation_scope": "DEVICE_LINKED",
+                "linked_customers": [secondary_customer.customer_id],
+                "linked_accounts": [secondary_customer.account_id],
+                "recent_anomalies": [
+                    {
+                        "anomaly_type": "KYC_STATUS_REVIEW",
+                        "account_id": secondary_customer.account_id,
+                        "observed_at": (target_time - timedelta(hours=5)).isoformat(),
+                        "detail": f"Account {secondary_customer.account_id} KYC status is REVIEW",
+                    }
+                ],
+                "relationship_signals": [
+                    {"signal": "SHARED_DEVICE", "device_id": shared_device_id}
+                ],
+                "source_record_ids": ["lnk_rec_branch_001"],
+            },
+        },
+    )
+
+
+def generate_partial_evidence_scenario(rng: random.Random) -> ScenarioResult:
+    """Generate a scenario where the single tool the evidence floor requires is
+    deliberately configured to fail/timeout, proving the fail-safe escalation path.
+
+    NEW_DEVICE fires (floor requires only get_device_history); get_device_history
+    itself is marked as failing in metadata, so the minimum-evidence floor can never
+    be satisfied and the case must fail safe to PARTIAL evidence / ESCALATE
+    (Contracts v1.2 S14, Policy rule P-001).
+    """
+    customer = create_customer_profile("cust_sc_partial", rng, city_idx=2)
+    merchant = create_merchant_profile("merch_standard_partial")
+    baseline = generate_normal_transactions(customer, [merchant], count=8, rng=rng)
+
+    target_time = baseline[-1].timestamp + timedelta(hours=9)
+    unseen_device_id = f"dev_partial_unseen_{rng.randint(60000, 69999)}"
+
+    target_tx = generate_single_transaction(
+        transaction_id="tx_sc_partial_evidence",
+        customer=customer,
+        merchant=merchant,
+        amount=customer.typical_amount_mean,
+        timestamp=target_time,
+        device_id=unseen_device_id,
+    )
+
+    return ScenarioResult(
+        scenario_name="PARTIAL_EVIDENCE",
+        target_transaction=target_tx,
+        baseline_transactions=baseline,
+        customer_profile=customer,
+        merchant_profile=merchant,
+        metadata={
+            "seeded_anomaly": "NEW_DEVICE",
+            "expected_anomaly_tags": ["NEW_DEVICE"],
+            "expected_evidence_completeness": "PARTIAL",
+            "expected_policy_outcome": "ESCALATE",
+            "failing_tool": {
+                "tool_name": "get_device_history",
+                "failure_mode": "TIMEOUT",
+                "reason": (
+                    "Deliberately configured to fail so the NEW_DEVICE minimum-evidence "
+                    "floor (get_device_history) can never be satisfied, proving the "
+                    "fail-safe escalation path per Contracts v1.2 S14 / Policy rule P-001."
+                ),
+            },
+        },
+    )
+
+
+def generate_merchant_risk_trend_scenario(rng: random.Random) -> ScenarioResult:
+    """Generate a single-signal MERCHANT_RISK scenario at a genuinely new-to-customer
+    merchant with a rising fraud-report trend, used for the Decision Robustness
+    Scorer demo variant (Phase 3).
+
+    Unlike the multi-signal flagship demo, this case isolates MERCHANT_RISK as the
+    sole anomaly signal so a live counterfactual (remove the merchant-risk factor)
+    has a clean, unambiguous chance of flipping the outcome to FRAGILE.
+    """
+    customer = create_customer_profile("cust_sc_mrtrend", rng, city_idx=3)
+    familiar_merchant = create_merchant_profile("merch_familiar_groceries", category="groceries")
+    baseline = generate_normal_transactions(customer, [familiar_merchant], count=6, rng=rng)
+
+    risky_new_merchant = create_merchant_profile(
+        merchant_id="merch_risky_new_electronics",
+        category="electronics",
+        risk_band=RiskBand.HIGH,
+        chargeback_rate=Decimal("0.035"),
+        recent_fraud_reports=4,
+        fraud_trend=FraudReportTrend.RISING,
+        onboarding_date=date(2025, 6, 1),
+    )
+
+    target_time = baseline[-1].timestamp + timedelta(hours=20)
+    target_tx = generate_single_transaction(
+        transaction_id="tx_sc_merchant_risk_trend",
+        customer=customer,
+        merchant=risky_new_merchant,
+        amount=customer.typical_amount_mean,
+        timestamp=target_time,
+    )
+
+    return ScenarioResult(
+        scenario_name="MERCHANT_RISK_TREND",
+        target_transaction=target_tx,
+        baseline_transactions=baseline,
+        customer_profile=customer,
+        merchant_profile=risky_new_merchant,
+        metadata={
+            "seeded_anomaly": "MERCHANT_RISK",
+            "expected_anomaly_tags": ["MERCHANT_RISK"],
+            "expected_policy_outcome": "ESCALATE",
+            "customer_prior_transactions_with_merchant": 0,
+            "fraud_report_trend": risky_new_merchant.fraud_report_trend.value,
+            "recent_fraud_report_count": risky_new_merchant.recent_fraud_report_count,
+            "robustness_demo_note": (
+                "Single-signal MERCHANT_RISK case intended for the Decision Robustness "
+                "Scorer demo variant: removing the sole HIGH-materiality merchant-risk "
+                "factor is expected to flip the case to FRAGILE (Phase 3)."
+            ),
+        },
+    )
+
+
 def seeded_demo_case(seed: int = 42) -> ScenarioResult:
     """Generate the authoritative V1.1 Flagship Demo Scenario.
 

@@ -1,0 +1,209 @@
+{
+  "scenario_name": "MERCHANT_RISK_TREND",
+  "target_transaction": {
+    "transaction_id": "tx_sc_merchant_risk_trend",
+    "customer_id": "cust_sc_mrtrend",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "merchant_id": "merch_risky_new_electronics",
+    "amount": "75.00",
+    "currency": "USD",
+    "timestamp": "2026-09-05T09:38:00Z",
+    "payment_rail": "CARD_CNP",
+    "direction": "OUTGOING",
+    "authorization_stage": "PRE_AUTH",
+    "device_id": "dev_46048",
+    "ip_address": "198.51.100.72",
+    "geo": {
+      "lat": "35.6762",
+      "lon": "139.6503",
+      "country": "JPN"
+    },
+    "channel": "WEB",
+    "merchant_category": "electronics",
+    "card_present": false
+  },
+  "baseline_transactions": [
+    {
+      "transaction_id": "tx_norm_cust_sc_mrtrend_0000",
+      "customer_id": "cust_sc_mrtrend",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_familiar_groceries",
+      "amount": "73.16",
+      "currency": "USD",
+      "timestamp": "2026-09-01T18:43:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "35.6762",
+        "lon": "139.6503",
+        "country": "JPN"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_mrtrend_0001",
+      "customer_id": "cust_sc_mrtrend",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_familiar_groceries",
+      "amount": "43.66",
+      "currency": "USD",
+      "timestamp": "2026-09-02T02:56:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "35.6762",
+        "lon": "139.6503",
+        "country": "JPN"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_mrtrend_0002",
+      "customer_id": "cust_sc_mrtrend",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_familiar_groceries",
+      "amount": "86.44",
+      "currency": "USD",
+      "timestamp": "2026-09-02T09:31:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "35.6762",
+        "lon": "139.6503",
+        "country": "JPN"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_mrtrend_0003",
+      "customer_id": "cust_sc_mrtrend",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_familiar_groceries",
+      "amount": "109.36",
+      "currency": "USD",
+      "timestamp": "2026-09-03T09:48:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "35.6762",
+        "lon": "139.6503",
+        "country": "JPN"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_mrtrend_0004",
+      "customer_id": "cust_sc_mrtrend",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_familiar_groceries",
+      "amount": "57.17",
+      "currency": "USD",
+      "timestamp": "2026-09-03T21:32:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "35.6762",
+        "lon": "139.6503",
+        "country": "JPN"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_mrtrend_0005",
+      "customer_id": "cust_sc_mrtrend",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_familiar_groceries",
+      "amount": "84.43",
+      "currency": "USD",
+      "timestamp": "2026-09-04T13:38:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "35.6762",
+        "lon": "139.6503",
+        "country": "JPN"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    }
+  ],
+  "customer_profile": {
+    "customer_id": "cust_sc_mrtrend",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "35.6762",
+      "lon": "139.6503",
+      "country": "JPN"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  "merchant_profile": {
+    "merchant_id": "merch_risky_new_electronics",
+    "category": "electronics",
+    "onboarding_date": "2025-06-01",
+    "chargeback_rate": "0.035",
+    "recent_fraud_report_count": 4,
+    "fraud_report_trend": "RISING",
+    "risk_band": "HIGH"
+  },
+  "secondary_profile": null,
+  "metadata": {
+    "seeded_anomaly": "MERCHANT_RISK",
+    "expected_anomaly_tags": [
+      "MERCHANT_RISK"
+    ],
+    "expected_policy_outcome": "ESCALATE",
+    "customer_prior_transactions_with_merchant": 0,
+    "fraud_report_trend": "RISING",
+    "recent_fraud_report_count": 4,
+    "robustness_demo_note": "Single-signal MERCHANT_RISK case intended for the Decision Robustness Scorer demo variant: removing the sole HIGH-materiality merchant-risk factor is expected to flip the case to FRAGILE (Phase 3)."
+  }
+}

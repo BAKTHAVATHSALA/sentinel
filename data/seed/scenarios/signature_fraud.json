@@ -1,0 +1,389 @@
+{
+  "scenario_name": "V1_FLAGSHIP_DEMO_SCENARIO",
+  "target_transaction": {
+    "transaction_id": "tx_demo_v1_flagship",
+    "customer_id": "cust_demo_established_01",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "merchant_id": "merch_demo_electronics_risky",
+    "amount": "499.99",
+    "currency": "USD",
+    "timestamp": "2026-09-13T14:00:00Z",
+    "payment_rail": "CARD_CNP",
+    "direction": "OUTGOING",
+    "authorization_stage": "PRE_AUTH",
+    "device_id": "dev_demo_suspicious_99",
+    "ip_address": "198.51.100.88",
+    "geo": {
+      "lat": "25.7617",
+      "lon": "-80.1918",
+      "country": "USA"
+    },
+    "channel": "WEB",
+    "merchant_category": "electronics",
+    "card_present": false
+  },
+  "baseline_transactions": [
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0000",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_groceries",
+      "amount": "87.95",
+      "currency": "USD",
+      "timestamp": "2026-09-01T18:13:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0001",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_apparel",
+      "amount": "111.99",
+      "currency": "USD",
+      "timestamp": "2026-09-02T22:47:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "retail_apparel",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0002",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_groceries",
+      "amount": "85.83",
+      "currency": "USD",
+      "timestamp": "2026-09-03T23:04:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0003",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_groceries",
+      "amount": "82.87",
+      "currency": "USD",
+      "timestamp": "2026-09-04T15:21:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0004",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_apparel",
+      "amount": "100.66",
+      "currency": "USD",
+      "timestamp": "2026-09-05T21:42:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "retail_apparel",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0005",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_groceries",
+      "amount": "96.71",
+      "currency": "USD",
+      "timestamp": "2026-09-06T22:58:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0006",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_apparel",
+      "amount": "104.23",
+      "currency": "USD",
+      "timestamp": "2026-09-07T22:05:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "retail_apparel",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0007",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_apparel",
+      "amount": "81.72",
+      "currency": "USD",
+      "timestamp": "2026-09-09T00:01:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "retail_apparel",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0008",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_apparel",
+      "amount": "98.79",
+      "currency": "USD",
+      "timestamp": "2026-09-10T04:05:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "retail_apparel",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0009",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_groceries",
+      "amount": "89.08",
+      "currency": "USD",
+      "timestamp": "2026-09-11T13:19:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0010",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_apparel",
+      "amount": "91.01",
+      "currency": "USD",
+      "timestamp": "2026-09-12T09:59:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "retail_apparel",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_demo_established_01_0011",
+      "customer_id": "cust_demo_established_01",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_demo_groceries",
+      "amount": "74.71",
+      "currency": "USD",
+      "timestamp": "2026-09-13T00:43:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "groceries",
+      "card_present": false
+    }
+  ],
+  "customer_profile": {
+    "customer_id": "cust_demo_established_01",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "40.7128",
+      "lon": "-74.0060",
+      "country": "USA"
+    },
+    "typical_amount_mean": "85.00",
+    "typical_amount_std": "20.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": [
+      "acc_2679"
+    ]
+  },
+  "merchant_profile": {
+    "merchant_id": "merch_demo_electronics_risky",
+    "category": "electronics",
+    "onboarding_date": "2025-02-10",
+    "chargeback_rate": "0.028",
+    "recent_fraud_report_count": 3,
+    "fraud_report_trend": "RISING",
+    "risk_band": "HIGH"
+  },
+  "secondary_profile": {
+    "customer_id": "cust_demo_compromised_02",
+    "account_id": "acc_2679",
+    "card_id": "card_9935",
+    "tenure_months": 6,
+    "primary_device_id": "dev_21395",
+    "primary_ip": "198.51.100.161",
+    "home_geo": {
+      "lat": "41.8781",
+      "lon": "-87.6298",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_532",
+      "merch_favorite_132",
+      "merch_favorite_130"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  "metadata": {
+    "scenario": "FLAGSHIP_CNP_ECOMMERCE_PRE_AUTH",
+    "intended_anomaly_tags": [
+      "NEW_DEVICE",
+      "UNUSUAL_LOCATION",
+      "MERCHANT_RISK"
+    ],
+    "device_details": {
+      "device_id": "dev_demo_suspicious_99",
+      "first_seen_minutes_prior": 40,
+      "cross_account_linkage": {
+        "linked_customer_id": "cust_demo_compromised_02",
+        "linked_account_id": "acc_2679",
+        "seen_hours_prior": 2
+      }
+    },
+    "location_details": {
+      "established_home_city": "New York, USA",
+      "transaction_city": "Miami, USA",
+      "anomaly_type": "UNUSUAL_LOCATION"
+    },
+    "merchant_details": {
+      "merchant_id": "merch_demo_electronics_risky",
+      "recent_fraud_report_count": 3,
+      "fraud_report_trend": "RISING",
+      "customer_prior_transactions_with_merchant": 0,
+      "risk_band": "HIGH"
+    },
+    "branching_hook_note": "get_device_history(dev_demo_suspicious_99) reveals association with acc_2679 2 hours earlier, prompting Evidence Agent to branch to get_linked_entities."
+  }
+}

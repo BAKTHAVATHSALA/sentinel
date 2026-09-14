@@ -1,0 +1,370 @@
+{
+  "scenario_name": "BRANCHING_PROOF",
+  "target_transaction": {
+    "transaction_id": "tx_sc_branching_proof",
+    "customer_id": "cust_sc_branch_primary",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "merchant_id": "merch_standard_branch",
+    "amount": "75.00",
+    "currency": "USD",
+    "timestamp": "2026-09-08T08:36:00Z",
+    "payment_rail": "CARD_CNP",
+    "direction": "OUTGOING",
+    "authorization_stage": "PRE_AUTH",
+    "device_id": "dev_branch_shared_77428",
+    "ip_address": "198.51.100.72",
+    "geo": {
+      "lat": "40.7128",
+      "lon": "-74.0060",
+      "country": "USA"
+    },
+    "channel": "WEB",
+    "merchant_category": "electronics",
+    "card_present": false
+  },
+  "baseline_transactions": [
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0000",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "73.16",
+      "currency": "USD",
+      "timestamp": "2026-09-01T18:43:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0001",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "43.66",
+      "currency": "USD",
+      "timestamp": "2026-09-02T02:56:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0002",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "86.44",
+      "currency": "USD",
+      "timestamp": "2026-09-02T09:31:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0003",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "109.36",
+      "currency": "USD",
+      "timestamp": "2026-09-03T09:48:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0004",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "57.17",
+      "currency": "USD",
+      "timestamp": "2026-09-03T21:32:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0005",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "84.43",
+      "currency": "USD",
+      "timestamp": "2026-09-04T13:38:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0006",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "64.09",
+      "currency": "USD",
+      "timestamp": "2026-09-05T07:32:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0007",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "91.28",
+      "currency": "USD",
+      "timestamp": "2026-09-06T06:39:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "MOBILE",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0008",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "39.05",
+      "currency": "USD",
+      "timestamp": "2026-09-06T22:32:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    },
+    {
+      "transaction_id": "tx_norm_cust_sc_branch_primary_0009",
+      "customer_id": "cust_sc_branch_primary",
+      "account_id": "acc_2824",
+      "card_id": "card_1409",
+      "merchant_id": "merch_standard_branch",
+      "amount": "37.37",
+      "currency": "USD",
+      "timestamp": "2026-09-08T02:36:00Z",
+      "payment_rail": "CARD_CNP",
+      "direction": "OUTGOING",
+      "authorization_stage": "PRE_AUTH",
+      "device_id": "dev_46048",
+      "ip_address": "198.51.100.72",
+      "geo": {
+        "lat": "40.7128",
+        "lon": "-74.0060",
+        "country": "USA"
+      },
+      "channel": "WEB",
+      "merchant_category": "electronics",
+      "card_present": false
+    }
+  ],
+  "customer_profile": {
+    "customer_id": "cust_sc_branch_primary",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "40.7128",
+      "lon": "-74.0060",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  "merchant_profile": {
+    "merchant_id": "merch_standard_branch",
+    "category": "electronics",
+    "onboarding_date": "2024-01-01",
+    "chargeback_rate": "0.005",
+    "recent_fraud_report_count": 0,
+    "fraud_report_trend": "STABLE",
+    "risk_band": "LOW"
+  },
+  "secondary_profile": {
+    "customer_id": "cust_sc_branch_secondary",
+    "account_id": "acc_5741",
+    "card_id": "card_2307",
+    "tenure_months": 18,
+    "primary_device_id": "dev_40512",
+    "primary_ip": "198.51.100.231",
+    "home_geo": {
+      "lat": "41.8781",
+      "lon": "-87.6298",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_203",
+      "merch_favorite_489",
+      "merch_favorite_384"
+    ],
+    "kyc_status": "REVIEW",
+    "linked_account_ids": []
+  },
+  "metadata": {
+    "seeded_anomaly": "NEW_DEVICE",
+    "expected_anomaly_tags": [
+      "NEW_DEVICE"
+    ],
+    "expected_policy_outcome": "ESCALATE",
+    "minimum_evidence_floor_for_new_device": [
+      "get_device_history"
+    ],
+    "floor_requires_get_linked_entities": false,
+    "branching_hook_note": "The agent must discover the cross-account device link on its own by inspecting get_device_history's result and choosing to call get_linked_entities -- the NEW_DEVICE floor alone never requires it.",
+    "device_history_fixture": {
+      "device_id": "dev_branch_shared_77428",
+      "customer_id": "cust_sc_branch_primary",
+      "known_device": false,
+      "first_seen_at": "2026-09-08T06:36:00+00:00",
+      "last_seen_at": "2026-09-08T08:36:00+00:00",
+      "transaction_count": 1,
+      "device_risk_signals": [
+        {
+          "signal": "SEEN_ON_DIFFERENT_ACCOUNT",
+          "other_account_id": "acc_5741",
+          "other_customer_id": "cust_sc_branch_secondary",
+          "seen_at": "2026-09-08T06:36:00+00:00",
+          "hours_before_target": 2
+        }
+      ],
+      "source_record_ids": [
+        "dvc_rec_branch_001"
+      ]
+    },
+    "linked_entities_fixture": {
+      "entity_id": "acc_5741",
+      "relation_scope": "DEVICE_LINKED",
+      "linked_customers": [
+        "cust_sc_branch_secondary"
+      ],
+      "linked_accounts": [
+        "acc_5741"
+      ],
+      "recent_anomalies": [
+        {
+          "anomaly_type": "KYC_STATUS_REVIEW",
+          "account_id": "acc_5741",
+          "observed_at": "2026-09-08T03:36:00+00:00",
+          "detail": "Account acc_5741 KYC status is REVIEW"
+        }
+      ],
+      "relationship_signals": [
+        {
+          "signal": "SHARED_DEVICE",
+          "device_id": "dev_branch_shared_77428"
+        }
+      ],
+      "source_record_ids": [
+        "lnk_rec_branch_001"
+      ]
+    }
+  }
+}

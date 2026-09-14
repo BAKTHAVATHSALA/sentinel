@@ -1,0 +1,158 @@
+[
+  {
+    "customer_id": "cust_sc_clean",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "37.7749",
+      "lon": "-122.4194",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  {
+    "customer_id": "cust_demo_established_01",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "40.7128",
+      "lon": "-74.0060",
+      "country": "USA"
+    },
+    "typical_amount_mean": "85.00",
+    "typical_amount_std": "20.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": [
+      "acc_2679"
+    ]
+  },
+  {
+    "customer_id": "cust_demo_compromised_02",
+    "account_id": "acc_2679",
+    "card_id": "card_9935",
+    "tenure_months": 6,
+    "primary_device_id": "dev_21395",
+    "primary_ip": "198.51.100.161",
+    "home_geo": {
+      "lat": "41.8781",
+      "lon": "-87.6298",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_532",
+      "merch_favorite_132",
+      "merch_favorite_130"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  {
+    "customer_id": "cust_sc_branch_primary",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "40.7128",
+      "lon": "-74.0060",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  {
+    "customer_id": "cust_sc_branch_secondary",
+    "account_id": "acc_5741",
+    "card_id": "card_2307",
+    "tenure_months": 18,
+    "primary_device_id": "dev_40512",
+    "primary_ip": "198.51.100.231",
+    "home_geo": {
+      "lat": "41.8781",
+      "lon": "-87.6298",
+      "country": "USA"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_203",
+      "merch_favorite_489",
+      "merch_favorite_384"
+    ],
+    "kyc_status": "REVIEW",
+    "linked_account_ids": []
+  },
+  {
+    "customer_id": "cust_sc_partial",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "51.5074",
+      "lon": "-0.1278",
+      "country": "GBR"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  },
+  {
+    "customer_id": "cust_sc_mrtrend",
+    "account_id": "acc_2824",
+    "card_id": "card_1409",
+    "tenure_months": 18,
+    "primary_device_id": "dev_46048",
+    "primary_ip": "198.51.100.72",
+    "home_geo": {
+      "lat": "35.6762",
+      "lon": "139.6503",
+      "country": "JPN"
+    },
+    "typical_amount_mean": "75.00",
+    "typical_amount_std": "25.00",
+    "favorite_merchants": [
+      "merch_favorite_328",
+      "merch_favorite_242",
+      "merch_favorite_854"
+    ],
+    "kyc_status": "VERIFIED",
+    "linked_account_ids": []
+  }
+]

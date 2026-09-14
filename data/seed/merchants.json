@@ -1,0 +1,47 @@
+[
+  {
+    "merchant_id": "merch_standard_clean",
+    "category": "electronics",
+    "onboarding_date": "2024-01-01",
+    "chargeback_rate": "0.005",
+    "recent_fraud_report_count": 0,
+    "fraud_report_trend": "STABLE",
+    "risk_band": "LOW"
+  },
+  {
+    "merchant_id": "merch_demo_electronics_risky",
+    "category": "electronics",
+    "onboarding_date": "2025-02-10",
+    "chargeback_rate": "0.028",
+    "recent_fraud_report_count": 3,
+    "fraud_report_trend": "RISING",
+    "risk_band": "HIGH"
+  },
+  {
+    "merchant_id": "merch_standard_branch",
+    "category": "electronics",
+    "onboarding_date": "2024-01-01",
+    "chargeback_rate": "0.005",
+    "recent_fraud_report_count": 0,
+    "fraud_report_trend": "STABLE",
+    "risk_band": "LOW"
+  },
+  {
+    "merchant_id": "merch_standard_partial",
+    "category": "electronics",
+    "onboarding_date": "2024-01-01",
+    "chargeback_rate": "0.005",
+    "recent_fraud_report_count": 0,
+    "fraud_report_trend": "STABLE",
+    "risk_band": "LOW"
+  },
+  {
+    "merchant_id": "merch_risky_new_electronics",
+    "category": "electronics",
+    "onboarding_date": "2025-06-01",
+    "chargeback_rate": "0.035",
+    "recent_fraud_report_count": 4,
+    "fraud_report_trend": "RISING",
+    "risk_band": "HIGH"
+  }
+]

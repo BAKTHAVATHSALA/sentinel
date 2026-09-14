@@ -7,11 +7,15 @@ from shared.contracts.transaction import Transaction
 from shared.generator.models import CustomerProfile, MerchantProfile, ScenarioResult
 from shared.generator.profiles import create_customer_profile, create_merchant_profile
 from shared.generator.scenarios import (
+    generate_branching_proof_scenario,
+    generate_clean_scenario,
     generate_impossible_travel_scenario,
     generate_kyc_anomaly_scenario,
     generate_linked_entity_anomaly_scenario,
     generate_merchant_risk_scenario,
+    generate_merchant_risk_trend_scenario,
     generate_new_device_scenario,
+    generate_partial_evidence_scenario,
     generate_unusual_amount_scenario,
     generate_unusual_location_scenario,
     generate_unusual_time_scenario,
@@ -28,6 +32,10 @@ SCENARIO_GENERATORS = {
     "MERCHANT_RISK": generate_merchant_risk_scenario,
     "LINKED_ENTITY_ANOMALY": generate_linked_entity_anomaly_scenario,
     "KYC_ANOMALY": generate_kyc_anomaly_scenario,
+    "CLEAN_NORMAL": generate_clean_scenario,
+    "BRANCHING_PROOF": generate_branching_proof_scenario,
+    "PARTIAL_EVIDENCE": generate_partial_evidence_scenario,
+    "MERCHANT_RISK_TREND": generate_merchant_risk_trend_scenario,
 }
 
 
@@ -82,12 +90,12 @@ def generate_scenario(
     :return: ScenarioResult container.
     """
     rng = random.Random(seed)
-    if scenario_name == "FLAGSHIP_DEMO" or scenario_name == "V1_FLAGSHIP_DEMO_SCENARIO":
+    if scenario_name in ("FLAGSHIP_DEMO", "V1_FLAGSHIP_DEMO_SCENARIO", "SIGNATURE_FRAUD"):
         return seeded_demo_case(seed=seed)
 
     generator_fn = SCENARIO_GENERATORS.get(scenario_name)
     if not generator_fn:
-        available = list(SCENARIO_GENERATORS.keys()) + ["FLAGSHIP_DEMO"]
+        available = list(SCENARIO_GENERATORS.keys()) + ["FLAGSHIP_DEMO", "SIGNATURE_FRAUD"]
         raise ValueError(f"Unknown scenario '{scenario_name}'. Available scenarios: {available}")
 
     return generator_fn(rng)

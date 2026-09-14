@@ -1,0 +1,19 @@
+{
+  "seed_value": 42,
+  "scenario_count": 5,
+  "customer_count": 7,
+  "merchant_count": 5,
+  "merchants_with_rising_trend": [
+    "merch_demo_electronics_risky",
+    "merch_risky_new_electronics"
+  ],
+  "scenarios": {
+    "clean_normal": "data/seed/scenarios/clean_normal.json",
+    "signature_fraud": "data/seed/scenarios/signature_fraud.json",
+    "branching_proof": "data/seed/scenarios/branching_proof.json",
+    "partial_evidence": "data/seed/scenarios/partial_evidence.json",
+    "merchant_risk_trend": "data/seed/scenarios/merchant_risk_trend.json"
+  },
+  "customers_file": "data/seed/customers.json",
+  "merchants_file": "data/seed/merchants.json"
+}
