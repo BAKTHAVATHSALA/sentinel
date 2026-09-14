@@ -130,51 +130,44 @@ def test_unusual_amount_anomaly_detected() -> None:
     assert AnomalyTag.UNUSUAL_AMOUNT not in baseline_out.anomaly_tags
 
 
-def test_unusual_time_anomaly_detected() -> None:
-    """9. Test that UNUSUAL_TIME is tagged during atypical deep-night hours (e.g. 03:35 UTC)."""
-    sc = generate_scenario("UNUSUAL_TIME", seed=42)
-    out = detect_scenario(sc)
-
-    assert AnomalyTag.UNUSUAL_TIME in out.anomaly_tags
-    assert any("night window" in reason.lower() for reason in out.detection_reasons)
-
-    # Negative test: normal daytime transaction (10:00 - 18:00) should NOT trigger UNUSUAL_TIME
-    baseline_out = detect_transaction(
-        transaction=sc.baseline_transactions[0],
-        customer=sc.customer_profile,
-    )
-    assert AnomalyTag.UNUSUAL_TIME not in baseline_out.anomaly_tags
-
-
-def test_impossible_travel_anomaly_detected() -> None:
-    """10. Test that IMPOSSIBLE_TRAVEL is tagged when speed between transactions exceeds 900 km/h."""
-    sc = generate_scenario("IMPOSSIBLE_TRAVEL", seed=42)
-    out = detect_scenario(sc)
-
-    assert AnomalyTag.IMPOSSIBLE_TRAVEL in out.anomaly_tags
-    assert any("velocity" in reason.lower() for reason in out.detection_reasons)
-
-
 def test_merchant_risk_anomaly_detected() -> None:
-    """11. Test that MERCHANT_RISK is tagged when merchant has high chargebacks / rising trend."""
+    """9. Test that MERCHANT_RISK is tagged when merchant has high chargebacks / rising trend."""
     sc = generate_scenario("MERCHANT_RISK", seed=42)
     out = detect_scenario(sc)
 
     assert AnomalyTag.MERCHANT_RISK in out.anomaly_tags
     assert any("Merchant" in reason for reason in out.detection_reasons)
 
+    # Negative test: a low-risk merchant (default chargeback rate/trend/band) should NOT trigger MERCHANT_RISK
+    low_risk_sc = generate_scenario("NEW_DEVICE", seed=42)
+    low_risk_out = detect_transaction(
+        transaction=low_risk_sc.baseline_transactions[0],
+        customer=low_risk_sc.customer_profile,
+        merchant=low_risk_sc.merchant_profile,
+    )
+    assert AnomalyTag.MERCHANT_RISK not in low_risk_out.anomaly_tags
+
 
 def test_linked_entity_anomaly_detected() -> None:
-    """12. Test that LINKED_ENTITY_ANOMALY is tagged when linked account has failed/review KYC."""
+    """10. Test that LINKED_ENTITY_ANOMALY is tagged when linked account has failed/review KYC."""
     sc = generate_scenario("LINKED_ENTITY_ANOMALY", seed=42)
     out = detect_scenario(sc)
 
     assert AnomalyTag.LINKED_ENTITY_ANOMALY in out.anomaly_tags
     assert any("Linked account" in reason for reason in out.detection_reasons)
 
+    # Negative test: a baseline transaction with no secondary/linked profile in context
+    # should NOT trigger LINKED_ENTITY_ANOMALY
+    baseline_out = detect_transaction(
+        transaction=sc.baseline_transactions[0],
+        customer=sc.customer_profile,
+        history=sc.baseline_transactions[1:],
+    )
+    assert AnomalyTag.LINKED_ENTITY_ANOMALY not in baseline_out.anomaly_tags
+
 
 def test_kyc_anomaly_detected() -> None:
-    """13. Test that KYC_ANOMALY is tagged when customer KYC verification status is not VERIFIED."""
+    """11. Test that KYC_ANOMALY is tagged when customer KYC verification status is not VERIFIED."""
     sc = generate_scenario("KYC_ANOMALY", seed=42)
     out = detect_scenario(sc)
 
@@ -183,7 +176,7 @@ def test_kyc_anomaly_detected() -> None:
 
 
 def test_flagship_demo_scenario_produces_exact_intended_signals() -> None:
-    """14. Test that flagship demo produces EXACTLY [NEW_DEVICE, UNUSUAL_LOCATION, MERCHANT_RISK]."""
+    """12. Test that flagship demo produces EXACTLY [NEW_DEVICE, UNUSUAL_LOCATION, MERCHANT_RISK]."""
     demo = seeded_demo_case(seed=42)
     out = detect_scenario(demo)
 
@@ -200,7 +193,7 @@ def test_flagship_demo_scenario_produces_exact_intended_signals() -> None:
 
 
 def test_detection_does_not_produce_policy_outcomes() -> None:
-    """15. Test that DetectionOutput does NOT contain policy outcomes (AUTO_RESOLVE, ESCALATE, BLOCK_HOLD)."""
+    """13. Test that DetectionOutput does NOT contain policy outcomes (AUTO_RESOLVE, ESCALATE, BLOCK_HOLD)."""
     demo = seeded_demo_case(seed=42)
     out = detect_scenario(demo)
 
@@ -211,7 +204,7 @@ def test_detection_does_not_produce_policy_outcomes() -> None:
 
 
 def test_no_gemini_or_network_calls() -> None:
-    """16. Test that detection runs entirely in-process without network or LLM APIs."""
+    """14. Test that detection runs entirely in-process without network or LLM APIs."""
     txs = generate_transactions(count=5, seed=1)
     service = DetectionService(random_state=42)
 

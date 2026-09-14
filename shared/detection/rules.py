@@ -14,9 +14,6 @@ EARTH_RADIUS_KM = Decimal("6371.0")
 LOCATION_DEVIATION_THRESHOLD_KM = Decimal("800.0")
 UNUSUAL_AMOUNT_ABSOLUTE_THRESHOLD = Decimal("1500.00")
 UNUSUAL_AMOUNT_SIGMA_MULTIPLIER = Decimal("25.0")
-NIGHT_HOURS_START = 1  # 01:00 UTC
-NIGHT_HOURS_END = 5    # 05:00 UTC
-MAX_PLAUSIBLE_SPEED_KMH = Decimal("900.0")
 MERCHANT_CHARGEBACK_THRESHOLD = Decimal("0.02")
 
 
@@ -108,54 +105,6 @@ def evaluate_unusual_amount(
     return False, None
 
 
-def evaluate_unusual_time(
-    transaction: Transaction,
-) -> tuple[bool, str | None]:
-    """Check whether transaction occurs during atypical customer hours (deep night window).
-
-    :param transaction: Candidate transaction.
-    :return: Tuple of (is_anomaly, reason).
-    """
-    hour = transaction.timestamp.hour
-    if NIGHT_HOURS_START <= hour <= NIGHT_HOURS_END:
-        return True, f"Transaction hour {hour}:00 UTC is within atypical night window ({NIGHT_HOURS_START}-{NIGHT_HOURS_END})"
-    return False, None
-
-
-def evaluate_impossible_travel(
-    transaction: Transaction,
-    history: list[Transaction] | None,
-) -> tuple[bool, str | None]:
-    """Check whether implied speed between recent transactions exceeds plausible physical velocity.
-
-    :param transaction: Candidate transaction.
-    :param history: Historical transactions.
-    :return: Tuple of (is_anomaly, reason).
-    """
-    if not history:
-        return False, None
-
-    # Compare against the most recent prior transaction
-    prior_txs = [tx for tx in history if tx.timestamp < transaction.timestamp]
-    if not prior_txs:
-        return False, None
-
-    most_recent = max(prior_txs, key=lambda tx: tx.timestamp)
-    time_delta = (transaction.timestamp - most_recent.timestamp).total_seconds()
-    if time_delta <= 0:
-        return False, None
-
-    elapsed_hours = Decimal(str(round(time_delta / 3600.0, 4)))
-    distance_km = calculate_haversine_distance_km(most_recent.geo, transaction.geo)
-
-    if elapsed_hours > Decimal("0.0"):
-        velocity_kmh = distance_km / elapsed_hours
-        if velocity_kmh > MAX_PLAUSIBLE_SPEED_KMH and distance_km > Decimal("200.0"):
-            return True, f"Implied velocity of {velocity_kmh:.1f} km/h over {distance_km}km in {elapsed_hours}h exceeds max threshold {MAX_PLAUSIBLE_SPEED_KMH} km/h"
-
-    return False, None
-
-
 def evaluate_merchant_risk(
     merchant: MerchantProfile | None,
 ) -> tuple[bool, str | None]:
@@ -220,7 +169,10 @@ def evaluate_all_anomalies(
     merchant: MerchantProfile | None = None,
     secondary_customer: CustomerProfile | None = None,
 ) -> tuple[list[AnomalyTag], list[str]]:
-    """Evaluate all 8 V1 anomaly rules deterministically.
+    """Evaluate the 6 V1-in-scope anomaly rules deterministically.
+
+    Per Contracts v1.2 §8.2/§34, IMPOSSIBLE_TRAVEL and UNUSUAL_TIME are out of
+    scope for V1 and are not implemented here.
 
     :param transaction: Transaction to evaluate.
     :param customer: Customer profile baseline.
@@ -250,31 +202,19 @@ def evaluate_all_anomalies(
         tags.append(AnomalyTag.UNUSUAL_AMOUNT)
         reasons.append(r_amt)
 
-    # 4. UNUSUAL_TIME
-    is_unusual_tm, r_tm = evaluate_unusual_time(transaction)
-    if is_unusual_tm and r_tm:
-        tags.append(AnomalyTag.UNUSUAL_TIME)
-        reasons.append(r_tm)
-
-    # 5. IMPOSSIBLE_TRAVEL
-    is_imp_travel, r_trv = evaluate_impossible_travel(transaction, history)
-    if is_imp_travel and r_trv:
-        tags.append(AnomalyTag.IMPOSSIBLE_TRAVEL)
-        reasons.append(r_trv)
-
-    # 6. MERCHANT_RISK
+    # 4. MERCHANT_RISK
     is_m_risk, r_m = evaluate_merchant_risk(merchant)
     if is_m_risk and r_m:
         tags.append(AnomalyTag.MERCHANT_RISK)
         reasons.append(r_m)
 
-    # 7. LINKED_ENTITY_ANOMALY
+    # 5. LINKED_ENTITY_ANOMALY
     is_link_anom, r_link = evaluate_linked_entity_anomaly(customer, secondary_customer)
     if is_link_anom and r_link:
         tags.append(AnomalyTag.LINKED_ENTITY_ANOMALY)
         reasons.append(r_link)
 
-    # 8. KYC_ANOMALY
+    # 6. KYC_ANOMALY (optional for V1)
     is_kyc_anom, r_kyc = evaluate_kyc_anomaly(customer)
     if is_kyc_anom and r_kyc:
         tags.append(AnomalyTag.KYC_ANOMALY)

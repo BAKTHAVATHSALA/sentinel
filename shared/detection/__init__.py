@@ -11,7 +11,6 @@ from shared.detection.model import (
 )
 from shared.detection.rules import (
     LOCATION_DEVIATION_THRESHOLD_KM,
-    MAX_PLAUSIBLE_SPEED_KMH,
     MERCHANT_CHARGEBACK_THRESHOLD,
     UNUSUAL_AMOUNT_ABSOLUTE_THRESHOLD,
     calculate_haversine_distance_km,
@@ -70,7 +69,6 @@ __all__ = [
     "HIGH_RISK_THRESHOLD",
     "LOCATION_DEVIATION_THRESHOLD_KM",
     "LOW_RISK_THRESHOLD",
-    "MAX_PLAUSIBLE_SPEED_KMH",
     "MERCHANT_CHARGEBACK_THRESHOLD",
     "MODEL_NAME",
     "MODEL_VERSION",
