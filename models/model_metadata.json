@@ -3,7 +3,7 @@
   "model_version": "v1.0.0",
   "model_type": "sklearn.linear_model.LogisticRegression",
   "saved_artifact_path": "models/sentinel_baseline_model.joblib",
-  "saved_artifact_size_bytes": 1615,
+  "saved_artifact_size_bytes": 1631,
   "hyperparameters": {
     "C": 1.0,
     "penalty": "l2",
@@ -64,7 +64,7 @@
     "fraud_recall": 0.9263959390862944,
     "fraud_precision": 0.06005264889766371,
     "brier_score": 0.023559581558190174,
-    "training_duration_seconds": 4.855
+    "training_duration_seconds": 6.071
   },
   "leakage_verification": {
     "training_data_only": true,

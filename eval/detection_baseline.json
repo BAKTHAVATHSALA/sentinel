@@ -2,7 +2,7 @@
   "model_metadata": {
     "model_type": "sklearn.linear_model.LogisticRegression",
     "model_path": "models/sentinel_baseline_model.joblib",
-    "model_sha256": "fcb2d0ff614d3971b16ad0e30c7d38d3abe0810cf82b8032cf849ffea02e5fe5"
+    "model_sha256": "4c94e6064072126f11cf6e144933e9919690a6fade52a32739623fcd8aef8119"
   },
   "evaluation_dataset": {
     "x_held_out_path": "data/processed/X_held_out.parquet",
