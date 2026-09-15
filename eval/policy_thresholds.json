@@ -1,0 +1,50 @@
+{
+  "title": "Sentinel Policy Rule P-003 HIGH_VALUE_THRESHOLD Specification",
+  "rule_id": "P-003",
+  "provenance": {
+    "dataset": "Held-Out Evaluation Split (data/processed/held_out.csv)",
+    "total_samples": 56962,
+    "total_fraud": 98,
+    "total_legitimate": 56864
+  },
+  "threshold": {
+    "HIGH_VALUE_THRESHOLD": 375.0,
+    "currency": "USD"
+  },
+  "derivation_rationale": "HIGH_VALUE_THRESHOLD=375.00 maps to the ~95th percentile of legitimate transaction amounts in the held-out split (legit p95=372.61), using the same percentile-based methodology scripts/derive_thresholds.py used for the risk-score band boundaries. Rule P-003 only fires when risk_score is already HIGH (the model already considers the transaction highly suspicious); the amount threshold is a cost-of-error backstop for that subset -- it forces escalation of large-dollar high-risk-score transactions even if Gemini's risk_assessment underrates them, since a wrongly auto-resolved high-value transaction is the most costly failure mode. At this cutoff, only 4.97% of all legitimate transactions clear the value bar (so it rarely matters on its own), while capturing 49.8% of total fraud dollar value among the 7/98 (7.1%) fraud transactions large enough to clear it.",
+  "amount_distribution_percentiles": {
+    "legitimate_traffic": {
+      "p50": 22.0,
+      "p75": 76.45750000000001,
+      "p90": 200.26800000000017,
+      "p95": 372.6085,
+      "p97": 538.8576000000002,
+      "p98": 708.2705999999996,
+      "p99": 1045.766900000001,
+      "p99.5": 1484.7059499999839,
+      "p100": 12910.93
+    },
+    "fraudulent_traffic": {
+      "p50": 10.344999999999999,
+      "p75": 99.99,
+      "p90": 323.2749999999999,
+      "p95": 513.3974999999999,
+      "p97": 538.5490000000003,
+      "p98": 645.1452000000004,
+      "p99": 832.7348000000011,
+      "p99.5": 1321.2074000000007,
+      "p100": 1809.68
+    }
+  },
+  "cost_of_error_analysis": {
+    "cutoff": 375.0,
+    "fraud_transactions_above_cutoff": 7,
+    "fraud_transactions_total": 98,
+    "fraud_dollar_value_share_above_cutoff": 0.4977167534215819,
+    "legitimate_transactions_flagged_share": 0.04967993809791784
+  },
+  "governance_and_integrity": {
+    "derived_from_held_out_empirical_distribution": true,
+    "arbitrary_guessing_avoided": true
+  }
+}

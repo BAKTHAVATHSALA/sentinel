@@ -1,0 +1,69 @@
+{
+  "title": "Sentinel V1 Phase 4.4 -- First Cloud Run Deployment Evidence",
+  "deployment": {
+    "service_name": "sentinel-v1",
+    "revision": "sentinel-v1-00001-mmk",
+    "project": "sentinel-ai-builder-cup",
+    "region": "us-central1",
+    "service_url": "https://sentinel-v1-209692631228.us-central1.run.app",
+    "service_account": "sentinel-cloud-run@sentinel-ai-builder-cup.iam.gserviceaccount.com",
+    "service_account_roles": ["roles/aiplatform.user", "roles/datastore.user"],
+    "auth": "IAM-authenticated (--no-allow-unauthenticated); invoker requires roles/run.invoker",
+    "build_method": "gcloud run deploy --source . (Cloud Build, Dockerfile-based)",
+    "traffic": "100% to revision sentinel-v1-00001-mmk"
+  },
+  "health_check": {
+    "endpoint": "GET /",
+    "http_status": 200,
+    "response": { "service": "sentinel-v1", "status": "ok" }
+  },
+  "fresh_end_to_end_transaction_via_deployed_service": {
+    "note": "The existing case for tx_sc_merchant_risk_trend was deleted from Firestore before this call, so this is a genuinely new pipeline execution through the deployed Cloud Run container, not a cached/duplicate lookup.",
+    "endpoint": "POST /transactions",
+    "request_transaction_id": "tx_sc_merchant_risk_trend",
+    "http_status": 200,
+    "duration_seconds": 50.7,
+    "response": {
+      "case_id": "case_7fc77dc90a9d",
+      "transaction_id": "tx_sc_merchant_risk_trend",
+      "state": "ESCALATED",
+      "outcome": "ESCALATE",
+      "rule_id": "P-002",
+      "duplicate": false
+    },
+    "firestore_case_document_verified": {
+      "state": "ESCALATED",
+      "has_transaction": true,
+      "has_detection": true,
+      "has_evidence_bundle": true,
+      "has_findings": true,
+      "has_robustness": true,
+      "robustness_classification": "FRAGILE",
+      "has_policy_decision": true,
+      "policy_rule_id": "P-002",
+      "audit_events_count": 8,
+      "audit_event_types": [
+        "CASE_DETECTED",
+        "CASE_FLAGGED",
+        "INVESTIGATION_STARTED",
+        "EVIDENCE_READY",
+        "REASONED",
+        "ROBUSTNESS_SCORED",
+        "POLICY_EVALUATED",
+        "ESCALATED"
+      ]
+    }
+  },
+  "duplicate_delivery_check_via_deployed_service": {
+    "note": "POST /transactions for tx_sc_clean_normal (a transaction_id already resolved earlier by scripts/run_pipeline_scenarios.py) returned the existing case instead of creating a second one -- Safety Invariants 8/9 verified across process boundaries (local script vs. deployed container, same Firestore).",
+    "http_status": 200,
+    "response": {
+      "case_id": "case_e3e4128a71b8",
+      "transaction_id": "tx_sc_clean_normal",
+      "state": "AUTO_RESOLVED",
+      "outcome": null,
+      "rule_id": null,
+      "duplicate": true
+    }
+  }
+}

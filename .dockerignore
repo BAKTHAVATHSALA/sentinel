@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Git / IDE
+.git/
+.github/
+.vscode/
+.idea/
+.claude/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Large datasets and model binaries -- not needed at runtime (the risk
+# model is retrained in-memory on synthetic samples at service startup;
+# data/seed/ fixtures, not data/raw or data/processed, are what the live
+# pipeline actually reads).
+data/raw/*
+!data/raw/README.md
+data/processed/*
+!data/processed/README.md
+*.csv
+*.parquet
+*.joblib
+*.pkl
+*.pickle
+
+# Docs not needed inside the container
+*.pdf
+README.md
+build.md

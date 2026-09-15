@@ -1,0 +1,70 @@
+{
+  "runs": [
+    {
+      "scenario": "branching_proof",
+      "transaction_id": "tx_sc_branching_proof",
+      "expected_policy_outcome": "ESCALATE",
+      "actual_outcome": "ESCALATE",
+      "actual_state": "ESCALATED",
+      "case_id": "case_46d9797eae5f",
+      "rule_id": "P-002",
+      "matches_expected": true,
+      "error": null,
+      "duration_seconds": 64.008482
+    },
+    {
+      "scenario": "clean_normal",
+      "transaction_id": "tx_sc_clean_normal",
+      "expected_policy_outcome": "AUTO_RESOLVE",
+      "actual_outcome": null,
+      "actual_state": "AUTO_RESOLVED",
+      "case_id": "case_e3e4128a71b8",
+      "rule_id": null,
+      "matches_expected": true,
+      "error": null,
+      "duration_seconds": 5.38373
+    },
+    {
+      "scenario": "merchant_risk_trend",
+      "transaction_id": "tx_sc_merchant_risk_trend",
+      "expected_policy_outcome": "ESCALATE",
+      "actual_outcome": "ESCALATE",
+      "actual_state": "ESCALATED",
+      "case_id": "case_4832d879c06f",
+      "rule_id": "P-002",
+      "matches_expected": true,
+      "error": null,
+      "duration_seconds": 64.363488
+    },
+    {
+      "scenario": "partial_evidence",
+      "transaction_id": "tx_sc_partial_evidence",
+      "expected_policy_outcome": "ESCALATE",
+      "actual_outcome": "ESCALATE",
+      "actual_state": "ESCALATED",
+      "case_id": "case_c7f87fe640be",
+      "rule_id": "P-001",
+      "matches_expected": true,
+      "error": null,
+      "duration_seconds": 58.667066
+    },
+    {
+      "scenario": "signature_fraud",
+      "transaction_id": "tx_demo_v1_flagship",
+      "expected_policy_outcome": null,
+      "actual_outcome": "ESCALATE",
+      "actual_state": "ESCALATED",
+      "case_id": "case_dcd27a2ff0d6",
+      "rule_id": "P-002",
+      "matches_expected": true,
+      "error": null,
+      "duration_seconds": 56.234993
+    }
+  ],
+  "summary": {
+    "total_scenarios": 5,
+    "all_matched_expected_outcome": true,
+    "headline": "Pipeline scenario sweep: all matched expected outcome = True"
+  },
+  "generated_at": "2026-09-15T07:02:54.205112+00:00"
+}

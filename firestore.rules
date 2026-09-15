@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Sentinel V1 Firestore Security Rules (Build Checklist Phase 4.2, Contracts
+// V1-Scoped S24/S25).
+//
+// V1 has exactly one writer: the sentinel-v1-sa Cloud Run service account,
+// authenticated via Application Default Credentials through the Admin SDK
+// (google-cloud-firestore's `firestore.Client`, not the client/web SDK).
+// Admin SDK access always bypasses Security Rules -- these rules exist to
+// enforce the other half of the checklist requirement: no other caller
+// (a browser, a leaked client config, a future Firebase-Auth-based analyst
+// UI) may ever read or write Firestore directly. The analyst UI (Phase 5)
+// reads/writes exclusively through the backend's own HTTP endpoints
+// (GET /cases, GET /cases/{case_id}, POST /cases/{case_id}/decision), never
+// through a client-side Firestore SDK -- so "no direct field writes" is
+// enforced here by denying every direct client access outright.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
