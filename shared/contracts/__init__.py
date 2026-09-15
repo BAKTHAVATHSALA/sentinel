@@ -2,7 +2,7 @@
 
 from shared.contracts.case import Case, CaseState, HumanAction
 from shared.contracts.detection import AnomalyTag, DetectionOutput, RiskBand
-from shared.contracts.events import ActorType, AuditEvent, ErrorEnvelope, EventEnvelope
+from shared.contracts.events import ActorType, AuditEvent, ErrorEnvelope
 from shared.contracts.evidence import (
     AgentTrace,
     EvidenceAgentInput,
@@ -22,7 +22,6 @@ from shared.contracts.reasoning import (
     Citation,
     FindingFactor,
     Materiality,
-    Precedent,
     ReasoningInput,
     ReasoningOutput,
     ReasoningStatus,
@@ -71,7 +70,6 @@ __all__ = [
     "ActorType",
     "AuditEvent",
     "ErrorEnvelope",
-    "EventEnvelope",
     # Evidence & Agent
     "AgentTrace",
     "EvidenceAgentInput",
@@ -92,7 +90,6 @@ __all__ = [
     "Citation",
     "FindingFactor",
     "Materiality",
-    "Precedent",
     "ReasoningInput",
     "ReasoningOutput",
     "ReasoningStatus",

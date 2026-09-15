@@ -1,4 +1,7 @@
-"""Unit tests for CaseFindings, FindingFactor, Citation, and Precedent contracts."""
+"""Unit tests for CaseFindings, FindingFactor, and Citation contracts.
+
+No Precedent contract: V1 has no RAG / precedent retrieval (Contracts
+V1-Scoped S0/S14)."""
 
 from datetime import datetime, timezone
 import pytest
@@ -10,7 +13,6 @@ from shared.contracts.reasoning import (
     Citation,
     FindingFactor,
     Materiality,
-    Precedent,
     RecommendedDisposition,
 )
 
@@ -37,9 +39,7 @@ def _build_valid_case_findings_payload() -> dict:
             )
         ],
         "evidence_gaps": [],
-        "evidence_citations": [
-            Citation(claim_id="claim_01", fact_ids=["fact_01"], precedent_ids=["prec_01"])
-        ],
+        "evidence_citations": [Citation(claim_id="claim_01", fact_ids=["fact_01"])],
         "recommended_disposition": RecommendedDisposition.ESCALATE,
         "generated_at": datetime(2026, 9, 13, 12, 0, 10, tzinfo=timezone.utc),
         "model_name": "gemini-1.5-pro",
@@ -80,28 +80,14 @@ def test_finding_factor_materiality() -> None:
         assert factor.materiality == mat
 
 
-def test_citation_precedent_ids_optional() -> None:
-    """Test Citation precedent_ids is optional."""
+def test_citation_rejects_extra_fields() -> None:
+    """Test that Citation has no precedent_ids or other extra field (V1 has no RAG)."""
     cit = Citation(claim_id="c1", fact_ids=["f1"])
-    assert cit.precedent_ids is None
+    assert cit.claim_id == "c1"
+    assert cit.fact_ids == ["f1"]
 
-    cit_with_prec = Citation(claim_id="c1", fact_ids=["f1"], precedent_ids=["p1"])
-    assert cit_with_prec.precedent_ids == ["p1"]
-
-
-def test_precedent_contract() -> None:
-    """Test Precedent contract creation and fields."""
-    prec = Precedent(
-        precedent_id="prec_001",
-        case_summary="Similar new device CNP fraud",
-        anomaly_tags=["NEW_DEVICE"],
-        outcome="BLOCK_HOLD",
-        evidence_summary="Device linked to multiple compromised cards",
-        source_type="HISTORICAL_CASE",
-        created_at=datetime(2026, 8, 1, 12, 0, 0, tzinfo=timezone.utc),
-    )
-    assert prec.precedent_id == "prec_001"
-    assert prec.anomaly_tags == ["NEW_DEVICE"]
+    with pytest.raises(ValidationError):
+        Citation(claim_id="c1", fact_ids=["f1"], precedent_ids=["p1"])  # type: ignore
 
 
 def test_case_findings_rejects_extra_fields() -> None:

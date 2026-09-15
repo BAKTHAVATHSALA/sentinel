@@ -1,11 +1,13 @@
-"""Event envelope, audit event, and error envelope contracts for Sentinel V1."""
+"""Audit event and error envelope contracts for Sentinel V1.
+
+V1 has no event bus (Contracts V1-Scoped S0/S19): there is no EventEnvelope
+here because V1 never carries a payload between services over Pub/Sub --
+case_id and transaction_id, threaded through every function call and log
+line, are V1's substitute for a distributed correlation ID (S3.1)."""
 
 from datetime import datetime
 from enum import Enum
-from typing import Generic, TypeVar
 from pydantic import BaseModel, ConfigDict
-
-T = TypeVar("T")
 
 
 class ActorType(str, Enum):
@@ -14,22 +16,6 @@ class ActorType(str, Enum):
     SYSTEM = "SYSTEM"
     AGENT = "AGENT"
     HUMAN = "HUMAN"
-
-
-class EventEnvelope(BaseModel, Generic[T]):
-    """Standardized event envelope wrapping asynchronous event payloads."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    event_id: str
-    event_type: str
-    event_version: str
-    case_id: str | None = None
-    transaction_id: str | None = None
-    correlation_id: str
-    occurred_at: datetime
-    producer: str
-    payload: T
 
 
 class AuditEvent(BaseModel):
@@ -50,7 +36,6 @@ class AuditEvent(BaseModel):
     input_snapshot: dict[str, object] | None = None
     output_snapshot: dict[str, object] | None = None
     occurred_at: datetime
-    correlation_id: str
 
 
 class ErrorEnvelope(BaseModel):
@@ -63,5 +48,4 @@ class ErrorEnvelope(BaseModel):
     retryable: bool
     case_id: str | None = None
     transaction_id: str | None = None
-    correlation_id: str
     occurred_at: datetime

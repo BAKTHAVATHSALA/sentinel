@@ -1,4 +1,7 @@
-"""Case findings, factor, citation, and precedent contracts for Sentinel V1."""
+"""Case findings, factor, and citation contracts for Sentinel V1.
+
+No Precedent contract: V1 has no RAG / precedent retrieval (Contracts
+V1-Scoped S0/S14) -- that is a named, deferred V2 upgrade, not built here."""
 
 from datetime import datetime
 from enum import Enum
@@ -28,13 +31,15 @@ class FindingFactor(BaseModel):
 
 
 class Citation(BaseModel):
-    """Citation linking a finding claim back to facts and optional precedents."""
+    """Citation linking a finding claim back to the evidence facts that support it.
+
+    No precedent_ids field: V1 has no RAG / precedent retrieval (Contracts
+    V1-Scoped S14)."""
 
     model_config = ConfigDict(extra="forbid")
 
     claim_id: str
     fact_ids: list[str]
-    precedent_ids: list[str] | None = None
 
 
 class RecommendedDisposition(str, Enum):
@@ -68,20 +73,6 @@ class CaseFindings(BaseModel):
     prompt_version: str
 
 
-class Precedent(BaseModel):
-    """Historical case precedent retrieved for comparative investigation."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    precedent_id: str
-    case_summary: str
-    anomaly_tags: list[str]
-    outcome: str
-    evidence_summary: str
-    source_type: str
-    created_at: datetime
-
-
 class ReasoningInput(BaseModel):
     """Input contract for invoking Reasoning (Build Checklist Phase 3.1's
     "ReasoningInput assembly": transaction, detection output, full evidence
@@ -99,9 +90,11 @@ class ReasoningInput(BaseModel):
 class ReasoningStatus(str, Enum):
     """Outcome of one bounded Reasoning call.
 
-    FAILED is the forced-escalation signal Policy rule P-002 (Contracts
-    v1.2 S20, Phase 4) reads -- reached only after the single citation/schema
-    reprompt (S17) is exhausted, never a silent drop (Safety Invariant #10).
+    FAILED means no CaseFindings exists for Policy to evaluate -- none of
+    Policy's named rules (Contracts V1-Scoped S16, Phase 4) can match without
+    findings.risk_assessment, so the case falls through to the Otherwise
+    rule -> ESCALATE. Reached only after the single citation/schema reprompt
+    (S14) is exhausted, never a silent drop (Safety Invariant 10).
     """
 
     SUCCESS = "SUCCESS"

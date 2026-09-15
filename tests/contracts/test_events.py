@@ -1,29 +1,12 @@
-"""Unit tests for EventEnvelope, AuditEvent, and ErrorEnvelope contracts."""
+"""Unit tests for AuditEvent and ErrorEnvelope contracts.
+
+No EventEnvelope: V1 has no event bus (Contracts V1-Scoped S0/S19)."""
 
 from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from shared.contracts.events import ActorType, AuditEvent, ErrorEnvelope, EventEnvelope
-
-
-def test_event_envelope_generic_payload() -> None:
-    """Test EventEnvelope wrapping a typed dictionary payload."""
-    payload = {"status": "FLAGGED", "score": 0.9}
-    event = EventEnvelope[dict[str, object]](
-        event_id="evt_001",
-        event_type="CaseFlagged",
-        event_version="1.0",
-        case_id="case_001",
-        transaction_id="tx_001",
-        correlation_id="corr_001",
-        occurred_at=datetime(2026, 9, 13, 12, 0, 0, tzinfo=timezone.utc),
-        producer="detection-service",
-        payload=payload,
-    )
-    assert event.event_id == "evt_001"
-    assert event.event_type == "CaseFlagged"
-    assert event.payload["status"] == "FLAGGED"
+from shared.contracts.events import ActorType, AuditEvent, ErrorEnvelope
 
 
 def test_audit_event_actor_types() -> None:
@@ -37,7 +20,6 @@ def test_audit_event_actor_types() -> None:
             actor_type=actor,
             actor_id="agent_evidence_v1",
             occurred_at=datetime(2026, 9, 13, 12, 0, 0, tzinfo=timezone.utc),
-            correlation_id="corr_001",
         )
         assert audit.actor_type == actor
 
@@ -50,7 +32,6 @@ def test_error_envelope_creation() -> None:
         retryable=True,
         case_id="case_001",
         transaction_id="tx_001",
-        correlation_id="corr_001",
         occurred_at=datetime(2026, 9, 13, 12, 0, 10, tzinfo=timezone.utc),
     )
     assert err.error_code == "GEMINI_TIMEOUT"
@@ -64,7 +45,6 @@ def test_events_reject_extra_fields() -> None:
             error_code="ERR",
             message="msg",
             retryable=False,
-            correlation_id="c1",
             occurred_at=datetime(2026, 9, 13, tzinfo=timezone.utc),
             extra_debug_info="forbidden",  # type: ignore
         )
@@ -77,6 +57,5 @@ def test_events_reject_extra_fields() -> None:
             event_type="TYPE",
             actor_type=ActorType.SYSTEM,
             occurred_at=datetime(2026, 9, 13, tzinfo=timezone.utc),
-            correlation_id="corr",
             unauthorized_key=123,  # type: ignore
         )

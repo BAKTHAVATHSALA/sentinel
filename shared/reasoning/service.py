@@ -191,7 +191,7 @@ class ReasoningService:
             counter_factors=payload.counter_factors,
             evidence_gaps=payload.evidence_gaps,
             evidence_citations=[
-                Citation(claim_id=c.claim_id, fact_ids=c.fact_ids, precedent_ids=None)
+                Citation(claim_id=c.claim_id, fact_ids=c.fact_ids)
                 for c in payload.evidence_citations
             ],
             recommended_disposition=payload.recommended_disposition,

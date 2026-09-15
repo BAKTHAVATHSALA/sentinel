@@ -17,6 +17,9 @@ DEFAULT_GCP_PROJECT_ID = "sentinel-ai-builder-cup"
 DEFAULT_GCP_REGION = "us-central1"
 DEFAULT_GEMINI_AGENT_MODEL = "gemini-2.5-flash"
 DEFAULT_GEMINI_REASONING_MODEL = "gemini-2.5-pro"
+DEFAULT_FIRESTORE_TRANSACTIONS_COLLECTION = "transactions"
+DEFAULT_FIRESTORE_CASES_COLLECTION = "cases"
+DEFAULT_FIRESTORE_AUDIT_COLLECTION = "audit_events"
 
 
 def get_gcp_project_id() -> str:
@@ -50,3 +53,25 @@ def get_gemini_reasoning_model() -> str:
     a different setting.
     """
     return os.getenv("GEMINI_REASONING_MODEL") or DEFAULT_GEMINI_REASONING_MODEL
+
+
+def get_firestore_database() -> str | None:
+    """Return the configured Firestore database ID, or None to use the SDK's default
+    "(default)" database."""
+    return os.getenv("FIRESTORE_DATABASE") or None
+
+
+def get_firestore_transactions_collection() -> str:
+    """Return the Firestore collection used for the transaction_id -> case_id
+    idempotency marker (Safety Invariants 8/9)."""
+    return os.getenv("FIRESTORE_TRANSACTIONS_COLLECTION") or DEFAULT_FIRESTORE_TRANSACTIONS_COLLECTION
+
+
+def get_firestore_cases_collection() -> str:
+    """Return the Firestore collection used for live case documents."""
+    return os.getenv("FIRESTORE_CASES_COLLECTION") or DEFAULT_FIRESTORE_CASES_COLLECTION
+
+
+def get_firestore_audit_collection() -> str:
+    """Return the Firestore subcollection name used for per-case audit events."""
+    return os.getenv("FIRESTORE_AUDIT_COLLECTION") or DEFAULT_FIRESTORE_AUDIT_COLLECTION
