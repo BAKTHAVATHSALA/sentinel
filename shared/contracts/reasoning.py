@@ -4,7 +4,9 @@ from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, ConfigDict
 
-from shared.contracts.detection import RiskBand
+from shared.contracts.detection import DetectionOutput, RiskBand
+from shared.contracts.evidence import EvidenceBundle
+from shared.contracts.transaction import Transaction
 
 
 class Materiality(str, Enum):
@@ -78,3 +80,43 @@ class Precedent(BaseModel):
     evidence_summary: str
     source_type: str
     created_at: datetime
+
+
+class ReasoningInput(BaseModel):
+    """Input contract for invoking Reasoning (Build Checklist Phase 3.1's
+    "ReasoningInput assembly": transaction, detection output, full evidence
+    bundle, and prompt version, mirroring EvidenceAgentInput's pattern)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    transaction: Transaction
+    detection: DetectionOutput
+    evidence_bundle: EvidenceBundle
+    prompt_version: str
+
+
+class ReasoningStatus(str, Enum):
+    """Outcome of one bounded Reasoning call.
+
+    FAILED is the forced-escalation signal Policy rule P-002 (Contracts
+    v1.2 S20, Phase 4) reads -- reached only after the single citation/schema
+    reprompt (S17) is exhausted, never a silent drop (Safety Invariant #10).
+    """
+
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+
+class ReasoningOutput(BaseModel):
+    """Output contract produced by Reasoning, mirroring EvidenceAgentOutput's
+    result-plus-trace shape. findings is populated only when status=SUCCESS."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: ReasoningStatus
+    findings: CaseFindings | None
+    attempts: int
+    failure_reasons: list[str]
+    model_name: str
+    model_version: str

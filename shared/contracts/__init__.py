@@ -23,7 +23,15 @@ from shared.contracts.reasoning import (
     FindingFactor,
     Materiality,
     Precedent,
+    ReasoningInput,
+    ReasoningOutput,
+    ReasoningStatus,
     RecommendedDisposition,
+)
+from shared.contracts.robustness import (
+    RobustnessClassification,
+    RobustnessMethod,
+    RobustnessResult,
 )
 from shared.contracts.tools import (
     BehavioralBaselineInput,
@@ -85,7 +93,14 @@ __all__ = [
     "FindingFactor",
     "Materiality",
     "Precedent",
+    "ReasoningInput",
+    "ReasoningOutput",
+    "ReasoningStatus",
     "RecommendedDisposition",
+    # Robustness
+    "RobustnessClassification",
+    "RobustnessMethod",
+    "RobustnessResult",
     # Evidence Tools
     "BehavioralBaselineInput",
     "BehavioralBaselineOutput",

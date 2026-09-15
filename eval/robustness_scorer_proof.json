@@ -1,0 +1,114 @@
+{
+  "scenarios": [
+    "branching_proof",
+    "merchant_risk_trend"
+  ],
+  "runs": [
+    {
+      "scenario": "branching_proof",
+      "case_id": "case_robustness_proof_branching_proof",
+      "anomaly_tags": [
+        "NEW_DEVICE"
+      ],
+      "evidence_completeness": "COMPLETE",
+      "tools_called": [
+        "get_device_history",
+        "get_linked_entities",
+        "get_mock_kyc_status",
+        "get_mock_kyc_status",
+        "get_ip_geovelocity",
+        "get_behavioral_baseline"
+      ],
+      "reasoning_status": "SUCCESS",
+      "risk_assessment": "HIGH",
+      "supporting_factors": [
+        {
+          "statement": "The transaction was made from a device new to the customer, which was used on a different customer's account only two hours earlier.",
+          "fact_ids": [
+            "fact_case_robustness_proof_branching_proof_01_get_device_history"
+          ],
+          "materiality": "HIGH"
+        },
+        {
+          "statement": "The account linked via the shared device is under KYC review, indicating it is a high-risk entity.",
+          "fact_ids": [
+            "fact_case_robustness_proof_branching_proof_02_get_linked_entities",
+            "fact_case_robustness_proof_branching_proof_03_get_mock_kyc_status"
+          ],
+          "materiality": "HIGH"
+        }
+      ],
+      "fast_path": {
+        "classification": "ROBUST",
+        "fragile_factor_id": null
+      },
+      "live_counterfactual": {
+        "fact_id_removed": "fact_case_robustness_proof_branching_proof_01_get_device_history",
+        "classification": "FRAGILE"
+      },
+      "started_at": "2026-09-15T05:41:11.336782+00:00",
+      "finished_at": "2026-09-15T05:42:13.739841+00:00",
+      "duration_seconds": 62.403059
+    },
+    {
+      "scenario": "merchant_risk_trend",
+      "case_id": "case_robustness_proof_merchant_risk_trend",
+      "anomaly_tags": [
+        "MERCHANT_RISK"
+      ],
+      "evidence_completeness": "COMPLETE",
+      "tools_called": [
+        "get_merchant_risk"
+      ],
+      "reasoning_status": "SUCCESS",
+      "risk_assessment": "HIGH",
+      "supporting_factors": [
+        {
+          "statement": "The transaction involves a merchant with an exceptionally high chargeback rate of 3.5%.",
+          "fact_ids": [
+            "fact_case_robustness_proof_merchant_risk_trend_01_get_merchant_risk"
+          ],
+          "materiality": "HIGH"
+        },
+        {
+          "statement": "The merchant is experiencing a rising trend in fraud reports.",
+          "fact_ids": [
+            "fact_case_robustness_proof_merchant_risk_trend_01_get_merchant_risk"
+          ],
+          "materiality": "MEDIUM"
+        },
+        {
+          "statement": "This is the customer's first transaction with this high-risk merchant.",
+          "fact_ids": [
+            "fact_case_robustness_proof_merchant_risk_trend_01_get_merchant_risk"
+          ],
+          "materiality": "LOW"
+        }
+      ],
+      "fast_path": {
+        "classification": "FRAGILE",
+        "fragile_factor_id": "fact_case_robustness_proof_merchant_risk_trend_01_get_merchant_risk"
+      },
+      "live_counterfactual": {
+        "fact_id_removed": "fact_case_robustness_proof_merchant_risk_trend_01_get_merchant_risk",
+        "classification": "ROBUST"
+      },
+      "started_at": "2026-09-15T05:42:13.759403+00:00",
+      "finished_at": "2026-09-15T05:42:57.331445+00:00",
+      "duration_seconds": 43.572042
+    }
+  ],
+  "summary": {
+    "fast_path_classifications": [
+      "ROBUST",
+      "FRAGILE"
+    ],
+    "live_counterfactual_classifications": [
+      "FRAGILE",
+      "ROBUST"
+    ],
+    "genuine_fragile_result_observed": true,
+    "headline": "Decision Robustness Scorer produced at least one genuine FRAGILE result across seeded variants: True"
+  },
+  "generated_at": "2026-09-15T05:42:57.334808+00:00"
+}
