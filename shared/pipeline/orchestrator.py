@@ -28,8 +28,10 @@ case is never re-run -- the existing case is returned as-is.
 
 Fail-safe (Contracts V1-Scoped S22, Safety Invariant 10): any unhandled
 exception during the flagged-case pipeline aborts the request, forces the
-case to ESCALATED with an audit note, and re-raises so the caller gets a
-clear error -- it never leaves a case in a dangling, half-written state.
+case to ESCALATED then HUMAN_REVIEW with an audit note, and re-raises so
+the caller gets a clear error -- it never leaves a case in a dangling,
+half-written state, and it never lands somewhere the analyst queue (GET
+/cases, Build Checklist Phase 5.1) can't see it.
 """
 
 from __future__ import annotations
@@ -177,7 +179,7 @@ def run_pipeline(
             store, case_id, transaction, detection, scenario, evidence_client, reasoning_client
         )
     except Exception as exc:  # noqa: BLE001 -- Contracts V1-Scoped S22: any unhandled failure must fail safe to ESCALATED
-        _log(case_id, transaction_id, f"Unhandled exception during investigation: {exc!r} -- forcing ESCALATED")
+        _log(case_id, transaction_id, f"Unhandled exception during investigation: {exc!r} -- forcing HUMAN_REVIEW")
         failure_time = datetime.now(timezone.utc)
         store.update_case(case_id, {"state": CaseState.ESCALATED.value, "updated_at": failure_time})
         store.append_audit_event(
@@ -192,6 +194,10 @@ def run_pipeline(
                 occurred_at=failure_time,
             ),
         )
+        # Fail-safe still needs to reach a human queue, not just a resting
+        # ESCALATED state the queue never queries (see the ESCALATE branch
+        # above for why HUMAN_REVIEW, not ESCALATED, is what GET /cases lists).
+        _transition(store, case_id, transaction_id, CaseState.HUMAN_REVIEW, "HUMAN_REVIEW")
         raise
 
 
@@ -336,7 +342,6 @@ def _investigate_flagged_transaction(
     )
     _log(case_id, transaction_id, f"Policy evaluated: rule_id={policy_decision.rule_id} outcome={policy_decision.outcome.value}")
 
-    final_state = CaseState.AUTO_RESOLVED if policy_decision.outcome.value == "AUTO_RESOLVE" else CaseState.ESCALATED
     now = datetime.now(timezone.utc)
     store.update_case(
         case_id,
@@ -361,20 +366,32 @@ def _investigate_flagged_transaction(
         ),
     )
 
-    now = datetime.now(timezone.utc)
-    store.update_case(case_id, {"state": final_state.value, "updated_at": now})
-    store.append_audit_event(
-        case_id,
-        AuditEvent(
-            audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
-            case_id=case_id,
-            transaction_id=transaction_id,
-            event_type=final_state.value,
-            actor_type=ActorType.SYSTEM,
-            rule_id=policy_decision.rule_id,
-            occurred_at=now,
-        ),
-    )
+    if policy_decision.outcome.value == "AUTO_RESOLVE":
+        final_state = CaseState.AUTO_RESOLVED
+        now = datetime.now(timezone.utc)
+        store.update_case(case_id, {"state": final_state.value, "updated_at": now})
+        store.append_audit_event(
+            case_id,
+            AuditEvent(
+                audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
+                case_id=case_id,
+                transaction_id=transaction_id,
+                event_type=final_state.value,
+                actor_type=ActorType.SYSTEM,
+                rule_id=policy_decision.rule_id,
+                occurred_at=now,
+            ),
+        )
+    else:
+        # ESCALATE lands the case in HUMAN_REVIEW, not a resting ESCALATED
+        # state: Build Checklist Phase 5.1 requires POST /cases/{case_id}/decision
+        # to enforce "case must be in HUMAN_REVIEW state", and GET /cases's queue
+        # view is exactly the set of cases awaiting that review. ESCALATED is
+        # still recorded as its own audit-trail moment immediately before it.
+        _transition(store, case_id, transaction_id, CaseState.ESCALATED, "ESCALATED")
+        _transition(store, case_id, transaction_id, CaseState.HUMAN_REVIEW, "HUMAN_REVIEW")
+        final_state = CaseState.HUMAN_REVIEW
+
     _log(case_id, transaction_id, f"Pipeline complete: final_state={final_state.value}")
 
     return {

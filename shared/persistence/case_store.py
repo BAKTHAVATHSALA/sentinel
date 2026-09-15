@@ -21,6 +21,7 @@ Collection names are configurable (shared.config) but default to
 from __future__ import annotations
 
 from google.cloud import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from shared.config import (
     get_firestore_audit_collection,
@@ -87,6 +88,21 @@ class CaseStore:
         """
         snapshot = self._client.collection(self._cases_collection).document(case_id).get()
         return snapshot.to_dict() if snapshot.exists else None
+
+    def list_cases_by_state(self, state: str) -> list[dict[str, object]]:
+        """List every case document currently in the given state.
+
+        A single-field equality filter on `state` is auto-indexed by Firestore
+        (Contracts V1-Scoped S26: only build indexes actual query patterns need).
+
+        :param state: CaseState value to filter on (e.g. "HUMAN_REVIEW" for the
+            Build Checklist Phase 5.1 queue view).
+        :return: Case documents in that state, each with its Firestore document id
+            attached as "case_id" (defensive -- the field is already stored, but this
+            guarantees it's present even for a document written before that field existed).
+        """
+        query = self._client.collection(self._cases_collection).where(filter=FieldFilter("state", "==", state))
+        return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
 
     def append_audit_event(self, case_id: str, audit_event: AuditEvent) -> None:
         """Append one audit event to a case's audit_events subcollection.

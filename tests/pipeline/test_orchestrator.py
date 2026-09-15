@@ -184,6 +184,30 @@ def test_flagged_transaction_runs_full_pipeline_with_fake_clients() -> None:
     assert event_types[-1] == result["state"]
 
 
+def test_escalated_case_lands_in_human_review_not_a_resting_escalated_state() -> None:
+    """Build Checklist Phase 5.1: POST /cases/{case_id}/decision requires the case to be
+    in HUMAN_REVIEW, and GET /cases's queue view is exactly that set -- an escalated case
+    must actually reach HUMAN_REVIEW, with ESCALATED recorded as its own audit moment
+    immediately before it, not as the final resting state."""
+    scenario = load_scenario("merchant_risk_trend")
+    store = FakeCaseStore()
+
+    result = run_pipeline(
+        scenario.target_transaction,
+        case_store=store,
+        evidence_client=FakeEvidenceGeminiClient(),
+        reasoning_client=FakeReasoningGeminiClient(risk_assessment="MEDIUM"),
+    )
+
+    assert result["outcome"] == "ESCALATE"
+    assert result["state"] == CaseState.HUMAN_REVIEW.value
+    case = store.get_case(result["case_id"])
+    assert case["state"] == CaseState.HUMAN_REVIEW.value
+
+    event_types = [e["event_type"] for e in store.audit_events[result["case_id"]]]
+    assert event_types[-2:] == ["ESCALATED", "HUMAN_REVIEW"]
+
+
 def test_flagged_transaction_with_reasoning_failure_never_auto_resolves() -> None:
     class AlwaysMalformedReasoningClient:
         model_name = "fake-gemini-pro-broken"
@@ -203,7 +227,7 @@ def test_flagged_transaction_with_reasoning_failure_never_auto_resolves() -> Non
     )
 
     assert result["outcome"] == "ESCALATE"
-    assert result["state"] == CaseState.ESCALATED.value
+    assert result["state"] == CaseState.HUMAN_REVIEW.value
     case = store.get_case(result["case_id"])
     assert case["findings"] is None
     assert case["robustness"] is None  # never scored -- no findings to score

@@ -1,0 +1,71 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:wght@400;600&display=swap");
+@import "tailwindcss";
+
+/*
+  Sentinel -- The Evidence Ledger design system.
+  Revised token set per the approved design specification: readability
+  prioritized over darkness, ledger metaphor kept to structure only
+  (numbering, monospace, one left-edge bar), no pervasive hairline texture.
+*/
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Structural neutrals -- graphite, not tinted-black-standing-for-black. */
+  --color-ground: #10141a;
+  --color-surface: #161b22;
+  --color-surface-raised: #1d232c;
+  --color-surface-reading: #1a2029;
+  --color-rule: #2a3138;
+  --color-rule-strong: #384049;
+  --color-text: #e9ecef;
+  --color-text-muted: #9199a6;
+  --color-text-faint: #5c6470;
+
+  /* Operational triad -- reused everywhere severity/confidence/outcome is
+     communicated, never a separate palette per feature. */
+  --color-stable: #3e7c8a;
+  --color-stable-soft: #26333a;
+  --color-caution: #b8863a;
+  --color-caution-soft: #362c1c;
+  --color-critical: #b14a42;
+  --color-critical-soft: #35211f;
+
+  --radius-token: 3px;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1;
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Signature interaction #1: the citation thread draw-in. The one
+   orchestrated animation the product uses (design spec S12) -- a direct
+   response to focus/click, never on load, never on hover. */
+.citation-thread-path {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: draw-citation-thread 180ms ease-out forwards;
+}
+@keyframes draw-citation-thread {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Reduced motion: the citation thread and counterfactual reveal become
+   instant, no animated draw. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

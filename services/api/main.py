@@ -1,10 +1,9 @@
 """Sentinel V1's single Cloud Run service entry point (Contracts V1-Scoped
-S23, Build Checklist Phase 4.3/4.4).
+S23, Build Checklist Phase 4.3/4.4/5.1).
 
-Only `POST /transactions` is implemented here -- the full pipeline entry
-point. `GET /cases`, `GET /cases/{case_id}`, and `POST /cases/{case_id}/decision`
-are Build Checklist Phase 5.1 deliverables (the analyst UI's backend) and are
-deliberately not built in this phase.
+`POST /transactions` is the full pipeline entry point (Phase 4.3). `GET
+/cases`, `GET /cases/{case_id}`, and `POST /cases/{case_id}/decision` (Phase
+5.1, the analyst UI's backend) are registered from services/api/cases.py.
 """
 
 from __future__ import annotations
@@ -13,8 +12,10 @@ from datetime import datetime, timezone
 import logging
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from services.api.cases import router as cases_router
 from shared.contracts.events import ErrorEnvelope
 from shared.contracts.transaction import Transaction
 from shared.pipeline.orchestrator import UnknownTransactionError, run_pipeline
@@ -23,6 +24,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger("sentinel.api")
 
 app = FastAPI(title="Sentinel V1", description="Fraud investigation pipeline -- V1 prototype")
+
+# The analyst UI (Build Checklist Phase 5) is a separate Vite dev server in
+# local development; Cloud Run serves only this API in V1 (Architecture v1.1
+# -- no separate frontend hosting service). Local-dev origins only.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+app.include_router(cases_router)
 
 
 @app.get("/")
