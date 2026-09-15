@@ -35,9 +35,7 @@ export function CounterfactualPanel({
 
       <div className="mt-3 border-t border-dashed border-[var(--color-rule)] pt-3">
         <p className="text-[11px] text-[var(--color-text-faint)]">
-          Live counterfactual re-check is not available: it requires a backend endpoint outside the current
-          authorized Phase 5.1 API surface (Contracts &sect;23.1 lists exactly POST /transactions, GET /cases, GET
-          /cases/{"{case_id}"}, and POST /cases/{"{case_id}"}/decision).
+          Live re-check is not available for this case yet. The estimate above is the fast-path result only.
         </p>
       </div>
     </section>

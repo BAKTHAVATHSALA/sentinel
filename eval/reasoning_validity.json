@@ -1,0 +1,63 @@
+{
+  "title": "Sentinel V1 Phase 5.5 -- Reasoning schema-validity and citation-validity rates",
+  "methodology": "Real Gemini Pro reasoning calls (shared.reasoning.service.ReasoningService, shared.reasoning.gemini_client.VertexReasoningClient) against the real, already-persisted evidence bundles for the 4 flagged Phase 1.4 scenarios. Measured per attempt, not per case, since a case can require a reprompt (Contracts V1-Scoped S17) -- each attempt independently either parsed as valid structured output or did not, and if it did, either every cited fact_id existed in the evidence bundle or it did not.",
+  "scenarios_evaluated": [
+    "branching_proof",
+    "merchant_risk_trend",
+    "partial_evidence",
+    "signature_fraud"
+  ],
+  "runs": [
+    {
+      "scenario": "branching_proof",
+      "source_case_id": "case_363a3f9bb31b",
+      "final_status": "SUCCESS",
+      "attempts_made": 1,
+      "attempt_outcomes": [
+        "VALID"
+      ],
+      "failure_reasons": []
+    },
+    {
+      "scenario": "merchant_risk_trend",
+      "source_case_id": "case_eb6fee140535",
+      "final_status": "SUCCESS",
+      "attempts_made": 1,
+      "attempt_outcomes": [
+        "VALID"
+      ],
+      "failure_reasons": []
+    },
+    {
+      "scenario": "partial_evidence",
+      "source_case_id": "case_24b32015ac18",
+      "final_status": "SUCCESS",
+      "attempts_made": 1,
+      "attempt_outcomes": [
+        "VALID"
+      ],
+      "failure_reasons": []
+    },
+    {
+      "scenario": "signature_fraud",
+      "source_case_id": "case_e41fc15a8461",
+      "final_status": "SUCCESS",
+      "attempts_made": 1,
+      "attempt_outcomes": [
+        "VALID"
+      ],
+      "failure_reasons": []
+    }
+  ],
+  "summary": {
+    "total_attempts": 4,
+    "schema_valid_attempts": 4,
+    "schema_validity_rate": 1.0,
+    "citation_eligible_attempts": 4,
+    "citation_valid_attempts": 4,
+    "citation_validity_rate": 1.0,
+    "cases_reaching_success": 4,
+    "cases_total": 4
+  },
+  "generated_at": "2026-09-15T10:20:19.788355+00:00"
+}

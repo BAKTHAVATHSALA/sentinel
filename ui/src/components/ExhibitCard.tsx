@@ -68,7 +68,9 @@ export function ExhibitCard({ fact, index, excluded }: { fact: Fact; index: numb
           .map(([key, value]) => (
             <Fragment key={key}>
               <dt className="text-[var(--color-text-faint)]">{formatFieldName(key)}</dt>
-              <dd className="font-mono text-[var(--color-text-muted)]">{formatFieldValue(value)}</dd>
+              <dd className="min-w-0 break-words font-mono text-[var(--color-text-muted)]">
+                {formatFieldValue(value)}
+              </dd>
             </Fragment>
           ))}
       </dl>
