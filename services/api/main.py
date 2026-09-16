@@ -4,9 +4,14 @@ S23, Build Checklist Phase 4.3/4.4/5.1).
 `POST /transactions` is the full pipeline entry point (Phase 4.3). `GET
 /cases`, `GET /cases/{case_id}`, and `POST /cases/{case_id}/decision` (Phase
 5.1, the analyst UI's backend) are registered from services/api/cases.py.
-`GET /healthz` is the liveness/readiness probe. `GET /` and every other
+`GET /api/health` is the liveness/readiness probe. `GET /` and every other
 unmatched path serve the compiled React SPA (mega-prompt Section 12: the
 bare Cloud Run URL must show the analyst login page, not a JSON payload).
+Deliberately not `/healthz`: on this project's `*.run.app` domain, Google's
+own front-end infrastructure intercepts the exact literal path `/healthz`
+before it ever reaches the container (verified live: `/healthz` -> Google's
+generic 404 page; `/healthz/` and `/Healthz` both reach this app normally)
+-- `/api/health` avoids that reserved convention entirely.
 """
 
 from __future__ import annotations
@@ -45,14 +50,18 @@ app.add_middleware(
 app.include_router(cases_router)
 
 
-@app.get("/healthz")
+@app.get("/api/health")
 def health() -> dict[str, str]:
     """Liveness/readiness probe. Deliberately not at "/" -- mega-prompt
     Section 12 requires the bare Cloud Run URL to serve the compiled React
-    SPA (the analyst login page), not a JSON health payload. Cloud Run's own
-    startup probe for this service is a plain TCP check on $PORT (verified
-    via `gcloud run services describe`), not an HTTP path, so moving this has
-    no deployment-config dependency."""
+    SPA (the analyst login page), not a JSON health payload. Also
+    deliberately not at "/healthz": verified live that Google's front-end
+    infrastructure intercepts that exact literal path on this service's
+    `*.run.app` domain before it ever reaches this container (a 404 from
+    Google, not from this app). Cloud Run's own startup probe for this
+    service is a plain TCP check on $PORT (verified via
+    `gcloud run services describe`), not an HTTP path, so this route's
+    location has no deployment-config dependency."""
     return {"service": "sentinel-v1", "status": "ok"}
 
 
@@ -90,7 +99,7 @@ def post_transactions(transaction: Transaction) -> dict[str, object]:
 # exists, so nothing here breaks local development or the test suite. This
 # block is deliberately the last thing registered: the catch-all path route
 # (including the bare "/") must never shadow a real API route above it
-# (/healthz, /cases, /cases/{id}, /cases/{id}/decision, /transactions --
+# (/api/health, /cases, /cases/{id}, /cases/{id}/decision, /transactions --
 # FastAPI/Starlette match routes in registration order, not by specificity).
 _UI_DIST = Path(__file__).resolve().parent.parent.parent / "ui" / "dist"
 
