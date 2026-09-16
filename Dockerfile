@@ -9,6 +9,13 @@ WORKDIR /ui
 COPY ui/package.json ui/package-lock.json ./
 RUN npm ci
 COPY ui ./
+# Production API calls must be relative (same-origin as this container
+# serves both the API and the SPA) -- otherwise Vite bakes ui/src/lib/api.ts's
+# local-dev fallback (http://localhost:8000) into the bundle at build time,
+# and every deployed browser tries to call its own machine instead of Cloud
+# Run. Local `npm run dev` is unaffected: this ENV only applies inside this
+# build stage, not to `.env`/`vite dev`.
+ENV VITE_API_BASE_URL=""
 RUN npm run build
 
 FROM python:3.13-slim
