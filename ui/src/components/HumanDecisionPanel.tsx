@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { PenGlyph } from "./icons";
 import { submitDecision, ApiError } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import type { CaseDocument, HumanAction } from "../lib/types";
 
 const ACTION_LABELS: Record<HumanAction, string> = {
@@ -10,14 +11,18 @@ const ACTION_LABELS: Record<HumanAction, string> = {
   ESCALATE_SENIOR: "Escalate to senior",
 };
 
-const REASON_REQUIRED: HumanAction[] = ["BLOCK_HOLD", "ESCALATE_SENIOR"];
-
 /**
  * Human: final operational authority (design spec #8/D). Actions are inert
  * until the analyst explicitly acknowledges the evidence -- authority
  * requires deliberate engagement, not a default-enabled button. Only this
  * panel, through POST /cases/{case_id}/decision, can ever produce
  * BLOCK_HOLD (Safety Invariant 4).
+ *
+ * `caseDoc.available_seniors` is present only when the backend resolved the
+ * caller as an ANALYST viewing a HUMAN_REVIEW case -- its absence is how
+ * this panel knows not to offer "Escalate to senior" at all (V1 Authoritative
+ * Ruling Part 3: a SENIOR_ANALYST must not see the escalation control, and
+ * role is server-resolved, never re-derived client-side).
  */
 export function HumanDecisionPanel({
   caseDoc,
@@ -26,28 +31,37 @@ export function HumanDecisionPanel({
   caseDoc: CaseDocument;
   onDecided: () => void;
 }) {
+  const { user } = useAuth();
   const [acknowledged, setAcknowledged] = useState(false);
   const [pendingAction, setPendingAction] = useState<HumanAction | null>(null);
   const [reason, setReason] = useState("");
-  const [analystId, setAnalystId] = useState("");
+  const [targetSeniorUid, setTargetSeniorUid] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reasonRequired = pendingAction ? REASON_REQUIRED.includes(pendingAction) : false;
-  const canConfirm = pendingAction !== null && analystId.trim().length > 0 && (!reasonRequired || reason.trim().length > 0);
+  const availableActions: HumanAction[] = caseDoc.available_seniors
+    ? ["CLEAR", "BLOCK_HOLD", "ESCALATE_SENIOR"]
+    : ["CLEAR", "BLOCK_HOLD"];
+
+  const isEscalation = pendingAction === "ESCALATE_SENIOR";
+  // A reason/description is mandatory for all three actions (V1 Authoritative
+  // Ruling Part 7) -- reasons cannot be submitted empty.
+  const canConfirm =
+    pendingAction !== null && !!user && reason.trim().length > 0 && (!isEscalation || targetSeniorUid.length > 0);
 
   async function confirm() {
-    if (!pendingAction) return;
+    if (!pendingAction || !user) return;
     setSubmitting(true);
     setError(null);
     try {
       await submitDecision(caseDoc.case_id, {
         case_id: caseDoc.case_id,
-        analyst_id: analystId.trim(),
+        analyst_id: user.uid,
         action: pendingAction,
-        reason: reason.trim() || null,
+        reason: reason.trim(),
         evidence_acknowledged: acknowledged,
         client_timestamp: new Date().toISOString(),
+        target_analyst_id: isEscalation ? targetSeniorUid : null,
       });
       onDecided();
     } catch (e) {
@@ -78,7 +92,7 @@ export function HumanDecisionPanel({
 
       {pendingAction === null ? (
         <div className="flex flex-col gap-2">
-          {(Object.keys(ACTION_LABELS) as HumanAction[]).map((action) => (
+          {availableActions.map((action) => (
             <button
               key={action}
               type="button"
@@ -93,17 +107,27 @@ export function HumanDecisionPanel({
       ) : (
         <div className="flex flex-col gap-2 border border-[var(--color-rule-strong)] p-3">
           <div className="text-[13px] text-[var(--color-text)]">{ACTION_LABELS[pendingAction]}</div>
+
+          {isEscalation && (
+            <label className="flex flex-col gap-1 text-[12px] text-[var(--color-text-muted)]">
+              Escalate to
+              <select
+                value={targetSeniorUid}
+                onChange={(e) => setTargetSeniorUid(e.target.value)}
+                className="border border-[var(--color-rule)] bg-[var(--color-ground)] px-2 py-1 text-[13px] text-[var(--color-text)]"
+              >
+                <option value="">Select a senior analyst&hellip;</option>
+                {caseDoc.available_seniors?.map((senior) => (
+                  <option key={senior.uid} value={senior.uid}>
+                    {senior.display_name} ({senior.email})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <label className="flex flex-col gap-1 text-[12px] text-[var(--color-text-muted)]">
-            Analyst ID
-            <input
-              value={analystId}
-              onChange={(e) => setAnalystId(e.target.value)}
-              className="border border-[var(--color-rule)] bg-[var(--color-ground)] px-2 py-1 font-mono text-[13px] text-[var(--color-text)]"
-              placeholder="analyst_id"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[12px] text-[var(--color-text-muted)]">
-            Reason {reasonRequired ? "(required)" : "(optional)"}
+            Reason (required)
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}

@@ -157,7 +157,28 @@ export interface PolicyDecision {
   evaluated_at: string;
 }
 
-/** GET /cases/{case_id} -- the full cases/{case_id} document, unmodified. */
+/** One escalation-target option for the senior-selection dropdown (V1
+ * Authoritative Ruling Part 4: name/email shown, raw UID never displayed). */
+export interface SeniorOption {
+  uid: string;
+  display_name: string;
+  email: string;
+}
+
+/** Response-only, non-persisted counterfactual re-evaluation (Addendum 1
+ * Point 4), present only when `?simulate_without=` was supplied. */
+export interface CounterfactualResult {
+  removed_fact_id: string;
+  findings: CaseFindings | null;
+  robustness: RobustnessResult;
+  policy_outcome_would_change: boolean;
+}
+
+/** GET /cases/{case_id} -- the full cases/{case_id} document, unmodified.
+ * `available_seniors` is present only when the case is HUMAN_REVIEW and the
+ * caller is an ANALYST -- its presence is also how the UI knows, without a
+ * separate "who am I" endpoint, whether to show the escalate control at all
+ * (role is server-resolved and never trusted/re-derived client-side). */
 export interface CaseDocument {
   case_id: string;
   transaction_id: string;
@@ -172,6 +193,8 @@ export interface CaseDocument {
   policy_decision: PolicyDecision | null;
   assigned_analyst_id: string | null;
   final_disposition: HumanAction | null;
+  available_seniors?: SeniorOption[];
+  counterfactual?: CounterfactualResult;
 }
 
 /** GET /cases -- one row of the queue view. */
@@ -190,7 +213,11 @@ export interface QueueCaseSummary {
   robustness_fragile_factor_id: string | null;
 }
 
-/** POST /cases/{case_id}/decision request body. */
+/** POST /cases/{case_id}/decision request body. `target_analyst_id` is used
+ * only for ESCALATE_SENIOR -- the selected senior's Firebase UID (V1
+ * Authoritative Ruling Part 4). `analyst_id` is always the caller's own UID;
+ * the backend verifies it against the authenticated session and rejects a
+ * mismatch, it never trusts it as an actor identity by itself. */
 export interface HumanDecisionRequest {
   case_id: string;
   analyst_id: string;
@@ -198,13 +225,17 @@ export interface HumanDecisionRequest {
   reason: string | null;
   evidence_acknowledged: boolean;
   client_timestamp: string;
+  target_analyst_id?: string | null;
 }
 
-/** POST /cases/{case_id}/decision response. */
+/** POST /cases/{case_id}/decision response. `final_disposition` is null for
+ * ESCALATE_SENIOR (a reassignment, not a finalization -- state stays
+ * HUMAN_REVIEW); `assigned_analyst_id` reflects the post-decision owner. */
 export interface DecisionResponse {
   case_id: string;
   state: CaseState;
-  final_disposition: HumanAction;
+  final_disposition: HumanAction | null;
+  assigned_analyst_id: string | null;
   decided_at: string;
   idempotent_replay: boolean;
 }

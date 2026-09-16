@@ -47,7 +47,25 @@ class PolicyDecision(BaseModel):
 
 
 class HumanDecisionRequest(BaseModel):
-    """Request submitted by an analyst executing human decision authority."""
+    """Request submitted by an analyst executing human decision authority.
+
+    `analyst_id` stays exactly as originally frozen: the backend never trusts
+    it -- it verifies the caller's Firebase ID token and rejects any request
+    whose `analyst_id` does not match the verified UID (V1 Authoritative
+    Ruling Part 1: "if the request body contains analyst_id, verify it
+    matches the verified UID; reject mismatch").
+
+    `target_analyst_id` is an additive field (same non-breaking pattern as
+    the Addendum 1 Point 4 `counterfactual` response addition -- no existing
+    field is removed, renamed, or retyped): required only when
+    `action == ESCALATE_SENIOR`, carrying the Firebase UID of the specific
+    SENIOR_ANALYST the requesting analyst selected from the UI's senior
+    dropdown (V1 Authoritative Ruling Part 4: "analyst selects a Senior
+    Analyst from a dropdown ... assigned_analyst_id becomes the selected
+    senior's Firebase UID"). The frozen schema had no other slot for this
+    value, since `analyst_id` is pinned to the caller's own verified identity
+    for every action, including escalation.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -57,3 +75,4 @@ class HumanDecisionRequest(BaseModel):
     reason: str | None = None
     evidence_acknowledged: bool
     client_timestamp: datetime
+    target_analyst_id: str | None = None

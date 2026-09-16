@@ -44,3 +44,7 @@ data/processed/*
 *.pdf
 README.md
 build.md
+
+# UI: rebuilt fresh inside the ui-build stage (npm ci), never copied from host
+ui/node_modules/
+ui/dist/

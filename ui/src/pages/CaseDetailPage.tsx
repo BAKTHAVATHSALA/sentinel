@@ -24,6 +24,8 @@ export function CaseDetailPage() {
   const [caseDoc, setCaseDoc] = useState<CaseDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [counterfactualLoading, setCounterfactualLoading] = useState(false);
+  const [counterfactualError, setCounterfactualError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!caseId) return;
@@ -36,6 +38,16 @@ export function CaseDetailPage() {
   useEffect(() => {
     load();
   }, [load, reloadToken]);
+
+  function requestCounterfactual(factId: string) {
+    if (!caseId) return;
+    setCounterfactualLoading(true);
+    setCounterfactualError(null);
+    fetchCase(caseId, factId)
+      .then(setCaseDoc)
+      .catch((e) => setCounterfactualError(e instanceof ApiError ? e.message : "Could not run the live re-check."))
+      .finally(() => setCounterfactualLoading(false));
+  }
 
   if (error) return <CaseDetailError message={error} onRetry={() => setReloadToken((t) => t + 1)} />;
   if (!caseDoc) return <LoadingSkeleton />;
@@ -100,6 +112,11 @@ export function CaseDetailPage() {
                 robustness={caseDoc.robustness}
                 findings={caseDoc.findings}
                 exhibitNumbers={exhibitNumbers}
+                facts={caseDoc.evidence_bundle?.facts ?? []}
+                counterfactual={caseDoc.counterfactual}
+                counterfactualLoading={counterfactualLoading}
+                counterfactualError={counterfactualError}
+                onRequestCounterfactual={requestCounterfactual}
               />
             )}
             {caseDoc.policy_decision && <PolicyLedgerEntry decision={caseDoc.policy_decision} />}

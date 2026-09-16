@@ -125,6 +125,33 @@ class RobustnessScorer:
         :param fact_id_to_remove: fact_id to drop before re-invoking Reasoning.
         :return: RobustnessResult with method=LIVE_COUNTERFACTUAL.
         """
+        result, _findings = self._live_counterfactual_full(case_id, reasoning_input, fact_id_to_remove)
+        return result
+
+    def live_counterfactual_with_findings(
+        self,
+        case_id: str,
+        reasoning_input: ReasoningInput,
+        fact_id_to_remove: str,
+    ) -> tuple[RobustnessResult, CaseFindings | None]:
+        """Same real Gemini call as live_counterfactual(), also returning the
+        counterfactual CaseFindings themselves (Build Checklist Phase 5 UI
+        counterfactual extension: `GET /cases/{case_id}?simulate_without=` needs
+        to display the re-run findings, not just their robustness
+        classification -- reusing this one call rather than invoking Reasoning
+        a second, independently non-deterministic time for the same request).
+
+        :return: (RobustnessResult, CaseFindings or None -- None exactly when
+            the counterfactual reasoning call itself failed).
+        """
+        return self._live_counterfactual_full(case_id, reasoning_input, fact_id_to_remove)
+
+    def _live_counterfactual_full(
+        self,
+        case_id: str,
+        reasoning_input: ReasoningInput,
+        fact_id_to_remove: str,
+    ) -> tuple[RobustnessResult, CaseFindings | None]:
         counterfactual_bundle = rebuild_evidence_bundle_without_fact(
             reasoning_input.evidence_bundle, fact_id_to_remove
         )
@@ -141,7 +168,10 @@ class RobustnessScorer:
 
         fragile_factor_id = fact_id_to_remove if classification == RobustnessClassification.FRAGILE else None
         robustness_id = f"rob_{case_id}_cf_{fact_id_to_remove}"
-        return self._result(robustness_id, case_id, classification, fragile_factor_id, RobustnessMethod.LIVE_COUNTERFACTUAL)
+        result = self._result(
+            robustness_id, case_id, classification, fragile_factor_id, RobustnessMethod.LIVE_COUNTERFACTUAL
+        )
+        return result, output.findings
 
     @staticmethod
     def _result(

@@ -47,6 +47,41 @@ class FakeCaseStore:
         self.audit_events[case_id].append(audit_event.model_dump(mode="json"))
 
 
+class _FakeAnalystRecord:
+    def __init__(self, uid: str) -> None:
+        self.uid = uid
+
+
+class FakeAnalystDirectory:
+    """In-memory double implementing AnalystDirectory's public surface used by
+    the orchestrator's round-robin assignment."""
+
+    def __init__(self, active_analyst_uids: list[str] | None = None) -> None:
+        self._active_analyst_uids = active_analyst_uids if active_analyst_uids is not None else ["analyst_fake_1"]
+
+    def list_active_analysts(self) -> list[_FakeAnalystRecord]:
+        return [_FakeAnalystRecord(uid) for uid in self._active_analyst_uids]
+
+
+class FakeAssignmentStore:
+    """In-memory double implementing AssignmentStore's public surface: simple
+    round-robin over whatever active_uids is passed each call."""
+
+    def __init__(self) -> None:
+        self._last_assigned: str | None = None
+
+    def assign_next_analyst(self, active_uids: list[str]) -> str | None:
+        if not active_uids:
+            return None
+        sorted_uids = sorted(set(active_uids))
+        if self._last_assigned in sorted_uids:
+            next_index = (sorted_uids.index(self._last_assigned) + 1) % len(sorted_uids)
+        else:
+            next_index = 0
+        self._last_assigned = sorted_uids[next_index]
+        return self._last_assigned
+
+
 class FakeEvidenceGeminiClient:
     """Scripted fake Evidence Agent client: stops immediately with a plain-text turn,
     so the (already-mocked) fixture-required tools drive completeness."""
@@ -120,14 +155,24 @@ def test_unknown_transaction_id_raises() -> None:
     with pytest.raises(UnknownTransactionError):
         resolve_scenario_for_transaction(unknown_tx.transaction_id)
     with pytest.raises(UnknownTransactionError):
-        run_pipeline(unknown_tx, case_store=FakeCaseStore())
+        run_pipeline(
+            unknown_tx,
+            case_store=FakeCaseStore(),
+            analyst_directory=FakeAnalystDirectory(),
+            assignment_store=FakeAssignmentStore(),
+        )
 
 
 def test_clean_normal_transaction_skips_investigation_and_auto_resolves() -> None:
     scenario = load_scenario("clean_normal")
     store = FakeCaseStore()
 
-    result = run_pipeline(scenario.target_transaction, case_store=store)
+    result = run_pipeline(
+        scenario.target_transaction,
+        case_store=store,
+        analyst_directory=FakeAnalystDirectory(),
+        assignment_store=FakeAssignmentStore(),
+    )
 
     assert result["state"] == CaseState.AUTO_RESOLVED.value
     assert result["outcome"] is None  # Policy was never invoked
@@ -149,8 +194,18 @@ def test_duplicate_transaction_returns_existing_case_without_rerunning() -> None
     scenario = load_scenario("clean_normal")
     store = FakeCaseStore()
 
-    first = run_pipeline(scenario.target_transaction, case_store=store)
-    second = run_pipeline(scenario.target_transaction, case_store=store)
+    first = run_pipeline(
+        scenario.target_transaction,
+        case_store=store,
+        analyst_directory=FakeAnalystDirectory(),
+        assignment_store=FakeAssignmentStore(),
+    )
+    second = run_pipeline(
+        scenario.target_transaction,
+        case_store=store,
+        analyst_directory=FakeAnalystDirectory(),
+        assignment_store=FakeAssignmentStore(),
+    )
 
     assert second["case_id"] == first["case_id"]
     assert second["duplicate"] is True
@@ -167,6 +222,8 @@ def test_flagged_transaction_runs_full_pipeline_with_fake_clients() -> None:
         case_store=store,
         evidence_client=FakeEvidenceGeminiClient(),
         reasoning_client=FakeReasoningGeminiClient(risk_assessment="MEDIUM"),
+        analyst_directory=FakeAnalystDirectory(),
+        assignment_store=FakeAssignmentStore(),
     )
 
     assert result["duplicate"] is False
@@ -197,12 +254,17 @@ def test_escalated_case_lands_in_human_review_not_a_resting_escalated_state() ->
         case_store=store,
         evidence_client=FakeEvidenceGeminiClient(),
         reasoning_client=FakeReasoningGeminiClient(risk_assessment="MEDIUM"),
+        analyst_directory=FakeAnalystDirectory(["analyst_fake_1"]),
+        assignment_store=FakeAssignmentStore(),
     )
 
     assert result["outcome"] == "ESCALATE"
     assert result["state"] == CaseState.HUMAN_REVIEW.value
     case = store.get_case(result["case_id"])
     assert case["state"] == CaseState.HUMAN_REVIEW.value
+    # Deterministic round-robin assignment fires on first HUMAN_REVIEW entry
+    # (V1 Authoritative Ruling Part 4/5).
+    assert case["assigned_analyst_id"] == "analyst_fake_1"
 
     event_types = [e["event_type"] for e in store.audit_events[result["case_id"]]]
     assert event_types[-2:] == ["ESCALATED", "HUMAN_REVIEW"]
@@ -224,6 +286,8 @@ def test_flagged_transaction_with_reasoning_failure_never_auto_resolves() -> Non
         case_store=store,
         evidence_client=FakeEvidenceGeminiClient(),
         reasoning_client=AlwaysMalformedReasoningClient(),
+        analyst_directory=FakeAnalystDirectory(),
+        assignment_store=FakeAssignmentStore(),
     )
 
     assert result["outcome"] == "ESCALATE"

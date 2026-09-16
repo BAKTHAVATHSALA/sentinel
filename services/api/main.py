@@ -10,10 +10,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from services.api.cases import router as cases_router
 from shared.contracts.events import ErrorEnvelope
@@ -26,8 +28,10 @@ logger = logging.getLogger("sentinel.api")
 app = FastAPI(title="Sentinel V1", description="Fraud investigation pipeline -- V1 prototype")
 
 # The analyst UI (Build Checklist Phase 5) is a separate Vite dev server in
-# local development; Cloud Run serves only this API in V1 (Architecture v1.1
-# -- no separate frontend hosting service). Local-dev origins only.
+# local development, proxying to this API on a different origin/port; in
+# production (mega-prompt Section 12) the compiled UI is served by this same
+# Cloud Run container, same-origin, so CORS does not apply there at all --
+# this middleware exists only for `npm run dev`.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -69,3 +73,28 @@ def post_transactions(transaction: Transaction) -> dict[str, object]:
             occurred_at=datetime.now(timezone.utc),
         )
         return JSONResponse(status_code=500, content=envelope.model_dump(mode="json"))
+
+
+# Compiled React UI (mega-prompt Section 12: "serve compiled frontend from
+# the same FastAPI/Cloud Run container"). ui/dist is absent in local `pytest`/
+# `uvicorn --reload` dev workflows (the UI runs on its own Vite dev server
+# instead) -- static/catch-all routes are only registered when a real build
+# exists, so nothing here breaks local development or the test suite. This
+# block is deliberately the last thing registered: the catch-all path route
+# must never shadow a real API route above it (FastAPI/Starlette match
+# routes in registration order, not by specificity).
+_UI_DIST = Path(__file__).resolve().parent.parent.parent / "ui" / "dist"
+
+if _UI_DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=_UI_DIST / "assets"), name="ui-assets")
+
+    @app.get("/{full_path:path}")
+    def serve_ui(full_path: str) -> FileResponse:
+        """SPA fallback: any path not matched by an API route above (/, /cases,
+        /cases/{id}, /cases/{id}/decision, /transactions) is a client-side React
+        Router route (e.g. /login, /case/{id}) -- serve index.html and let the
+        browser-side router take over."""
+        candidate = _UI_DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_UI_DIST / "index.html")

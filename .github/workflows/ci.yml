@@ -6,8 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+# Minimal CI (Build Checklist Phase 0.2 / mega-prompt Section 14): install
+# dependencies, lint/typecheck, and run every automated test that does not
+# require live GCP credentials. Real Gemini/Firestore/Firebase Auth
+# integration is proven separately, outside CI, by the repo's *_live.py test
+# files and the eval/*.json artifacts they produce -- CI deliberately does
+# not attempt to provision GCP credentials, matching "Do NOT require live GCP
+# credentials in CI. Do NOT over-engineer CI."
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,5 +31,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Run credential-free tests
+        run: >
+          pytest --ignore-glob="*_live.py"
+          --ignore=tests/data/test_trained_model.py
+        # *_live.py: real Gemini/Firestore/Firebase Auth calls, need ADC.
+        # tests/data/test_trained_model.py: asserts a trained model.joblib
+        # artifact exists on disk; that artifact is intentionally .gitignore'd
+        # (large binary, regenerated from data/raw/ which is also not
+        # committed) so it never exists in a fresh checkout. Every other
+        # data-dependent test in tests/data/ already self-skips via
+        # pytest.skip() when its processed-data file is absent.
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck + build
+        run: npm run build
+
       - name: Run tests
-        run: pytest
+        run: npm run test

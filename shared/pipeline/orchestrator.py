@@ -40,6 +40,8 @@ from datetime import datetime, timezone
 import logging
 import uuid
 
+from shared.auth.assignment import AssignmentStore
+from shared.auth.directory import AnalystDirectory
 from shared.contracts.case import CaseState
 from shared.contracts.detection import DetectionOutput
 from shared.contracts.evidence import EvidenceAgentInput, EvidenceCompleteness
@@ -94,6 +96,8 @@ def run_pipeline(
     case_store: CaseStore | None = None,
     evidence_client: EvidenceAgentModelClient | None = None,
     reasoning_client: ReasoningModelClient | None = None,
+    analyst_directory: AnalystDirectory | None = None,
+    assignment_store: AssignmentStore | None = None,
 ) -> dict[str, object]:
     """Run the full Sentinel V1 pipeline for one transaction and return a result summary.
 
@@ -101,10 +105,17 @@ def run_pipeline(
     :param case_store: Injected CaseStore; defaults to a real Firestore-backed store.
     :param evidence_client: Injected Evidence Agent Gemini client; defaults to real Vertex AI.
     :param reasoning_client: Injected Reasoning Gemini client; defaults to real Vertex AI.
+    :param analyst_directory: Injected AnalystDirectory for round-robin assignment;
+        defaults to a real Firestore-backed directory.
+    :param assignment_store: Injected AssignmentStore for round-robin assignment;
+        defaults to a real Firestore-backed store.
     :return: {"case_id", "transaction_id", "state", "outcome", "rule_id"} summary.
     :raises UnknownTransactionError: if transaction_id matches no seeded scenario.
     """
     store = case_store or CaseStore(build_firestore_client())
+    firestore_client = build_firestore_client() if (analyst_directory is None or assignment_store is None) else None
+    directory = analyst_directory or AnalystDirectory(firestore_client)
+    assignment = assignment_store or AssignmentStore(firestore_client)
     transaction_id = transaction.transaction_id
 
     existing_case_id = store.get_case_id_for_transaction(transaction_id)
@@ -176,7 +187,7 @@ def run_pipeline(
 
     try:
         return _investigate_flagged_transaction(
-            store, case_id, transaction, detection, scenario, evidence_client, reasoning_client
+            store, case_id, transaction, detection, scenario, evidence_client, reasoning_client, directory, assignment
         )
     except Exception as exc:  # noqa: BLE001 -- Contracts V1-Scoped S22: any unhandled failure must fail safe to ESCALATED
         _log(case_id, transaction_id, f"Unhandled exception during investigation: {exc!r} -- forcing HUMAN_REVIEW")
@@ -197,7 +208,7 @@ def run_pipeline(
         # Fail-safe still needs to reach a human queue, not just a resting
         # ESCALATED state the queue never queries (see the ESCALATE branch
         # above for why HUMAN_REVIEW, not ESCALATED, is what GET /cases lists).
-        _transition(store, case_id, transaction_id, CaseState.HUMAN_REVIEW, "HUMAN_REVIEW")
+        _transition_to_human_review(store, case_id, transaction_id, directory, assignment)
         raise
 
 
@@ -237,6 +248,8 @@ def _investigate_flagged_transaction(
     scenario: ScenarioResult,
     evidence_client: EvidenceAgentModelClient | None,
     reasoning_client: ReasoningModelClient | None,
+    directory: AnalystDirectory,
+    assignment: AssignmentStore,
 ) -> dict[str, object]:
     transaction_id = transaction.transaction_id
 
@@ -389,7 +402,7 @@ def _investigate_flagged_transaction(
         # view is exactly the set of cases awaiting that review. ESCALATED is
         # still recorded as its own audit-trail moment immediately before it.
         _transition(store, case_id, transaction_id, CaseState.ESCALATED, "ESCALATED")
-        _transition(store, case_id, transaction_id, CaseState.HUMAN_REVIEW, "HUMAN_REVIEW")
+        _transition_to_human_review(store, case_id, transaction_id, directory, assignment)
         final_state = CaseState.HUMAN_REVIEW
 
     _log(case_id, transaction_id, f"Pipeline complete: final_state={final_state.value}")
@@ -419,3 +432,57 @@ def _transition(store: CaseStore, case_id: str, transaction_id: str, state: Case
         ),
     )
     _log(case_id, transaction_id, f"State transition -> {state.value}")
+
+
+def _transition_to_human_review(
+    store: CaseStore,
+    case_id: str,
+    transaction_id: str,
+    directory: AnalystDirectory,
+    assignment: AssignmentStore,
+) -> None:
+    """Transition into HUMAN_REVIEW and fire deterministic round-robin
+    assignment exactly once (V1 Authoritative Ruling Part 4/5): every code
+    path that first enters HUMAN_REVIEW -- the normal ESCALATE outcome and the
+    Contracts V1-Scoped S22 fail-safe path -- goes through this single
+    function, so assignment can never fire twice for the same case and can
+    never fire on a later ESCALATE_SENIOR reassignment (that is a direct
+    assigned_analyst_id overwrite in services/api/cases.py, not a re-entry
+    into HUMAN_REVIEW).
+    """
+    active_uids = [record.uid for record in directory.list_active_analysts()]
+    assigned_uid = assignment.assign_next_analyst(active_uids)
+
+    now = datetime.now(timezone.utc)
+    updates: dict[str, object] = {"state": CaseState.HUMAN_REVIEW.value, "updated_at": now}
+    if assigned_uid is not None:
+        updates["assigned_analyst_id"] = assigned_uid
+    store.update_case(case_id, updates)
+
+    store.append_audit_event(
+        case_id,
+        AuditEvent(
+            audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
+            case_id=case_id,
+            transaction_id=transaction_id,
+            event_type="HUMAN_REVIEW",
+            actor_type=ActorType.SYSTEM,
+            actor_id=assigned_uid,
+            output_snapshot={"assigned_analyst_id": assigned_uid, "active_analyst_pool_size": len(active_uids)},
+            occurred_at=now,
+        ),
+    )
+    if assigned_uid is None:
+        store.append_audit_event(
+            case_id,
+            AuditEvent(
+                audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
+                case_id=case_id,
+                transaction_id=transaction_id,
+                event_type="NO_ANALYST_AVAILABLE",
+                actor_type=ActorType.SYSTEM,
+                output_snapshot={"reason": "zero active analysts in round-robin pool; case left unassigned"},
+                occurred_at=now,
+            ),
+        )
+    _log(case_id, transaction_id, f"State transition -> HUMAN_REVIEW (assigned_analyst_id={assigned_uid})")
