@@ -4,6 +4,9 @@ S23, Build Checklist Phase 4.3/4.4/5.1).
 `POST /transactions` is the full pipeline entry point (Phase 4.3). `GET
 /cases`, `GET /cases/{case_id}`, and `POST /cases/{case_id}/decision` (Phase
 5.1, the analyst UI's backend) are registered from services/api/cases.py.
+`GET /healthz` is the liveness/readiness probe. `GET /` and every other
+unmatched path serve the compiled React SPA (mega-prompt Section 12: the
+bare Cloud Run URL must show the analyst login page, not a JSON payload).
 """
 
 from __future__ import annotations
@@ -42,9 +45,14 @@ app.add_middleware(
 app.include_router(cases_router)
 
 
-@app.get("/")
+@app.get("/healthz")
 def health() -> dict[str, str]:
-    """Liveness/readiness probe for Cloud Run."""
+    """Liveness/readiness probe. Deliberately not at "/" -- mega-prompt
+    Section 12 requires the bare Cloud Run URL to serve the compiled React
+    SPA (the analyst login page), not a JSON health payload. Cloud Run's own
+    startup probe for this service is a plain TCP check on $PORT (verified
+    via `gcloud run services describe`), not an HTTP path, so moving this has
+    no deployment-config dependency."""
     return {"service": "sentinel-v1", "status": "ok"}
 
 
@@ -81,8 +89,9 @@ def post_transactions(transaction: Transaction) -> dict[str, object]:
 # instead) -- static/catch-all routes are only registered when a real build
 # exists, so nothing here breaks local development or the test suite. This
 # block is deliberately the last thing registered: the catch-all path route
-# must never shadow a real API route above it (FastAPI/Starlette match
-# routes in registration order, not by specificity).
+# (including the bare "/") must never shadow a real API route above it
+# (/healthz, /cases, /cases/{id}, /cases/{id}/decision, /transactions --
+# FastAPI/Starlette match routes in registration order, not by specificity).
 _UI_DIST = Path(__file__).resolve().parent.parent.parent / "ui" / "dist"
 
 if _UI_DIST.is_dir():
@@ -90,10 +99,11 @@ if _UI_DIST.is_dir():
 
     @app.get("/{full_path:path}")
     def serve_ui(full_path: str) -> FileResponse:
-        """SPA fallback: any path not matched by an API route above (/, /cases,
-        /cases/{id}, /cases/{id}/decision, /transactions) is a client-side React
-        Router route (e.g. /login, /case/{id}) -- serve index.html and let the
-        browser-side router take over."""
+        """SPA fallback: "/" and any path not matched by an API route above is
+        a client-side React Router route (/, /login, /case/{id}, ...) -- serve
+        index.html and let the browser-side router take over. A path matching
+        a real built asset file (under /assets, mounted separately above) is
+        served directly instead."""
         candidate = _UI_DIST / full_path
         if full_path and candidate.is_file():
             return FileResponse(candidate)
