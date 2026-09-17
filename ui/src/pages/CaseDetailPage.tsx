@@ -91,7 +91,12 @@ export function CaseDetailPage() {
                 <div className="flex flex-col gap-3 p-4">
                   <h2 className="text-[13px] text-[var(--color-text-muted)]">Evidence</h2>
                   {caseDoc.evidence_bundle!.facts.map((fact, i) => (
-                    <ExhibitCard key={fact.fact_id} fact={fact} index={i} />
+                    <ExhibitCard
+                      key={fact.fact_id}
+                      fact={fact}
+                      index={i}
+                      excluded={fact.fact_id === caseDoc.counterfactual?.removed_fact_id}
+                    />
                   ))}
                 </div>
 
