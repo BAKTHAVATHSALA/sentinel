@@ -63,7 +63,14 @@ function deriveStages(caseDoc: CaseDocument): Stage[] {
         : state === "HUMAN_REVIEW"
           ? "Awaiting"
           : "Pending";
-  const humanStatus: StageStatus = state === "FINALIZED" ? "decision" : state === "HUMAN_REVIEW" ? "pending" : "skipped";
+  // AUTO_RESOLVED's terminal stage is a genuinely completed automated
+  // resolution (Phase E: "AUTO_RESOLVED should show all automated stages as
+  // completed"), not an inapplicable/skipped one -- distinct from the
+  // upstream Evidence/Reasoning/Robustness/Policy stages, which are
+  // correctly "Not required" (skipped/neutral, not a false completion
+  // claim) when a clean transaction skipped investigation entirely.
+  const humanStatus: StageStatus =
+    state === "FINALIZED" ? "decision" : state === "HUMAN_REVIEW" ? "pending" : state === "AUTO_RESOLVED" ? "done" : "skipped";
 
   return [
     {
@@ -80,10 +87,18 @@ function deriveStages(caseDoc: CaseDocument): Stage[] {
   ];
 }
 
+// Phase E (analyst pipeline visual fix): a completed stage is GREEN whether
+// it's a system stage (Detection/Evidence), an advisory stage (Reasoning/
+// Robustness), or a deterministic decision stage (Policy) -- Policy
+// completing by deciding ESCALATE is a *successful* policy completion, not
+// an unfinished or failed step, exactly like AUTO_RESOLVE. RED is reserved
+// for an actual technical/system failure (Reasoning genuinely failing after
+// retries, evidence coming back PARTIAL) -- never for a HIGH-risk or
+// HUMAN_REVIEW outcome, which are correct, successful pipeline results.
 const STATUS_COLOR: Record<StageStatus, string> = {
   done: "text-[var(--color-stable)]",
-  advisory: "text-[var(--color-text)]",
-  decision: "text-[var(--color-text)]",
+  advisory: "text-[var(--color-stable)]",
+  decision: "text-[var(--color-stable)]",
   pending: "text-[var(--color-caution)]",
   skipped: "text-[var(--color-text-faint)]",
   failed: "text-[var(--color-critical)]",

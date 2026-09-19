@@ -9,19 +9,34 @@ Build Checklist Phase 4.3):
       -> Policy()
       -> Firestore write
 
-Clean/normal transactions (zero anomaly_tags) skip investigation entirely
-and resolve immediately -- Evidence Agent, Reasoning, Robustness Scorer, and
-Policy are never invoked for them, matching the checklist's explicit
-"skip investigation entirely" requirement (not just "skip Evidence Agent").
+Clean transactions (zero anomaly_tags) always skip investigation entirely --
+Evidence Agent, Reasoning, Robustness Scorer, and Policy are never invoked
+for them, matching the checklist's explicit "skip investigation entirely"
+requirement (not just "skip Evidence Agent"). The final disposition still
+depends on risk_band, exactly as Rule P-004 (Contracts S16) has always
+required alongside anomaly_tags = []: CLEAN + LOW resolves immediately
+(AUTO_RESOLVED); CLEAN + MEDIUM/HIGH still skips investigation (there is
+nothing to investigate) but reaches HUMAN_REVIEW instead, without ever
+producing a PolicyDecision Policy did not actually evaluate.
 
 Fixture-backed transaction resolution: V1 has no live customer/merchant data
 source (Contracts V1-Scoped S10 "all tools are read-only, mocked against
 seeded fixture data"). This orchestrator resolves the customer/merchant/
 baseline-transaction context a transaction needs by matching its
-transaction_id against the committed seed scenarios (data/seed/scenarios/).
-This is what lets Build Checklist Phase 4.3's "run all seeded scenarios
-through the full pipeline" be a literal HTTP call with that scenario's own
-target_transaction as the request body.
+transaction_id against the committed seed scenarios (data/seed/scenarios/)
+first. This is what lets Build Checklist Phase 4.3's "run all seeded
+scenarios through the full pipeline" be a literal HTTP call with that
+scenario's own target_transaction as the request body.
+
+A transaction_id matching no committed fixture is NOT rejected: it falls
+through to shared/generator/synthesis.py, which deterministically
+synthesizes a plausible customer/merchant context from the transaction's
+own identifiers (still local, mocked data -- never a live external API,
+so Contracts S10 still holds), and the real submitted transaction is
+investigated through the exact same pipeline below. "Unknown transaction_id"
+is not "automatic fraud" and not "reject the request" -- Detection,
+Evidence Agent, Reasoning, Robustness, and Policy alone determine the
+outcome, exactly as they do for a committed fixture.
 
 Idempotency (Safety Invariants 8/9): a transaction_id that already has a
 case is never re-run -- the existing case is returned as-is.
@@ -42,11 +57,13 @@ import uuid
 
 from shared.auth.assignment import AssignmentStore
 from shared.auth.directory import AnalystDirectory
+from shared.auth.models import AnalystRecord, AnalystRole
 from shared.contracts.case import CaseState
-from shared.contracts.detection import DetectionOutput
-from shared.contracts.evidence import EvidenceAgentInput, EvidenceCompleteness
+from shared.contracts.detection import DetectionOutput, RiskBand
+from shared.contracts.evidence import EvidenceAgentInput, EvidenceBundle, EvidenceCompleteness
 from shared.contracts.events import ActorType, AuditEvent
-from shared.contracts.reasoning import ReasoningInput, ReasoningStatus
+from shared.contracts.policy import PolicyDecision
+from shared.contracts.reasoning import CaseFindings, ReasoningInput, ReasoningStatus
 from shared.contracts.transaction import Transaction
 from shared.detection import detect_transaction
 from shared.evidence.agent import EvidenceAgent, EvidenceAgentModelClient
@@ -54,6 +71,7 @@ from shared.evidence.fixtures import build_fixture_context
 from shared.evidence.gemini_client import VertexEvidenceAgentClient
 from shared.generator.models import ScenarioResult
 from shared.generator.seed_loader import load_all_scenarios
+from shared.generator.synthesis import synthesize_scenario_for_transaction
 from shared.persistence.case_document import build_case_document
 from shared.persistence.case_store import CaseStore
 from shared.persistence.firestore_client import build_firestore_client
@@ -75,20 +93,108 @@ def _log(case_id: str, transaction_id: str, message: str) -> None:
     logger.info(f"case_id={case_id} transaction_id={transaction_id} - {message}")
 
 
-def resolve_scenario_for_transaction(transaction_id: str) -> ScenarioResult:
-    """Resolve the seeded scenario whose target_transaction matches transaction_id.
+def _analyst_summary(record: AnalystRecord | None) -> dict[str, str] | None:
+    """Judge-facing assignment summary for the public Transaction Console's
+    POST /transactions response: display name only -- no email, no Firebase
+    UID, no role. Additive response field, not a persisted document field,
+    so no frozen contract changes (Addendum 1 Point 4 precedent for
+    response-only additions).
 
-    :param transaction_id: transaction_id from the incoming request.
-    :return: The matching ScenarioResult.
-    :raises UnknownTransactionError: if no seeded scenario has this transaction_id.
+    Restricted to the normal round-robin ANALYST pool only: a case whose
+    current assigned_analyst_id belongs to a SENIOR_ANALYST (reached only
+    through the existing, unchanged ESCALATE_SENIOR human-review workflow,
+    never through this pipeline) must never be surfaced here as if it were
+    a normal transaction-console assignment -- that identity is visible
+    only inside the authenticated, case-scoped Analyst Portal.
+    """
+    if record is None or record.role != AnalystRole.ANALYST:
+        return None
+    return {"analyst_name": record.display_name}
+
+
+def _decision_summary(
+    detection: DetectionOutput,
+    evidence_bundle: EvidenceBundle | None,
+    findings: CaseFindings | None,
+    policy_decision: PolicyDecision | None,
+) -> dict[str, object]:
+    """Public-safe decision summary for the Transaction Console: an
+    additive POST /transactions response field (not a persisted document
+    field -- Addendum 1 Point 4 precedent), so the public console can
+    explain a result without GET /cases/{case_id} or any protected case
+    content. Every value is read directly from the real pipeline objects
+    already resolved during this request -- nothing here is computed,
+    inferred, or invented for display purposes.
+
+    Deliberately excluded (protected-case-only): raw evidence Facts,
+    tools_called/agent_trace, findings.summary/supporting_factors/
+    counter_factors/evidence_citations, robustness, exact merchant
+    chargeback_rate/recent_fraud_report_count (only the boolean
+    merchant_flagged), and anything identity-related (UID/email).
+
+    :param detection: Always available (Detection always runs).
+    :param evidence_bundle: None for a clean transaction that skipped investigation.
+    :param findings: None if investigation was skipped, or if Reasoning failed.
+    :param policy_decision: None if Policy was never invoked (clean transaction).
+    :return: {"risk_assessment", "anomaly_tags", "policy_rule_id", "reasons",
+        "evidence_completeness", "merchant_flagged"}.
+    """
+    anomaly_tags = [tag.value for tag in detection.anomaly_tags]
+    risk_assessment = findings.risk_assessment.value if findings is not None else detection.risk_band.value
+    return {
+        "risk_assessment": risk_assessment,
+        "anomaly_tags": anomaly_tags,
+        "policy_rule_id": policy_decision.rule_id if policy_decision is not None else None,
+        "reasons": list(policy_decision.reasons) if policy_decision is not None else [],
+        "evidence_completeness": evidence_bundle.completeness.value if evidence_bundle is not None else None,
+        "merchant_flagged": "MERCHANT_RISK" in anomaly_tags,
+    }
+
+
+def _decision_summary_from_document(document: dict[str, object]) -> dict[str, object]:
+    """Same public-safe decision summary as _decision_summary, but sourced
+    from an already-persisted Firestore case document (the duplicate-
+    transaction return paths) instead of freshly-computed pipeline objects.
+    Reads the same real, previously-computed fields verbatim -- it does not
+    recompute or re-derive anything."""
+    detection = document.get("detection") or {}
+    evidence_bundle = document.get("evidence_bundle")
+    findings = document.get("findings")
+    policy_decision = document.get("policy_decision")
+
+    anomaly_tags = list(detection.get("anomaly_tags") or [])
+    risk_assessment = findings.get("risk_assessment") if findings else detection.get("risk_band")
+
+    return {
+        "risk_assessment": risk_assessment,
+        "anomaly_tags": anomaly_tags,
+        "policy_rule_id": policy_decision.get("rule_id") if policy_decision else None,
+        "reasons": list(policy_decision.get("reasons") or []) if policy_decision else [],
+        "evidence_completeness": evidence_bundle.get("completeness") if evidence_bundle else None,
+        "merchant_flagged": "MERCHANT_RISK" in anomaly_tags,
+    }
+
+
+def resolve_scenario_for_transaction(transaction: Transaction) -> ScenarioResult:
+    """Resolve the investigation context for a submitted transaction: a
+    committed seed fixture if its transaction_id matches one exactly, or a
+    deterministic synthetic context otherwise (shared/generator/synthesis.py).
+
+    "Unknown transaction_id" no longer means "reject the request" -- every
+    syntactically valid Transaction (already validated by the frozen
+    contract before reaching here) can be investigated through the real
+    pipeline. The seeded fixtures are matched first and never altered by
+    this fallback; only a transaction_id absent from all of them falls
+    through to synthesis.
+
+    :param transaction: The submitted Transaction (POST /transactions body).
+    :return: A ScenarioResult -- either an existing committed fixture, or a
+        freshly synthesized one for this exact transaction.
     """
     for scenario in load_all_scenarios().values():
-        if scenario.target_transaction.transaction_id == transaction_id:
+        if scenario.target_transaction.transaction_id == transaction.transaction_id:
             return scenario
-    raise UnknownTransactionError(
-        f"transaction_id '{transaction_id}' matches no seeded scenario -- V1 has no live "
-        "customer/merchant data source (Contracts V1-Scoped S10)."
-    )
+    return synthesize_scenario_for_transaction(transaction)
 
 
 def run_pipeline(
@@ -110,7 +216,6 @@ def run_pipeline(
     :param assignment_store: Injected AssignmentStore for round-robin assignment;
         defaults to a real Firestore-backed store.
     :return: {"case_id", "transaction_id", "state", "outcome", "rule_id"} summary.
-    :raises UnknownTransactionError: if transaction_id matches no seeded scenario.
     """
     store = case_store or CaseStore(build_firestore_client())
     firestore_client = build_firestore_client() if (analyst_directory is None or assignment_store is None) else None
@@ -122,6 +227,7 @@ def run_pipeline(
     if existing_case_id is not None:
         _log(existing_case_id, transaction_id, "Duplicate POST /transactions -- returning existing case")
         existing = store.get_case(existing_case_id) or {}
+        existing_assigned_uid = existing.get("assigned_analyst_id")
         return {
             "case_id": existing_case_id,
             "transaction_id": transaction_id,
@@ -129,9 +235,11 @@ def run_pipeline(
             "outcome": (existing.get("policy_decision") or {}).get("outcome"),
             "rule_id": (existing.get("policy_decision") or {}).get("rule_id"),
             "duplicate": True,
+            "assignment": _analyst_summary(directory.get(existing_assigned_uid) if existing_assigned_uid else None),
+            "decision_summary": _decision_summary_from_document(existing),
         }
 
-    scenario = resolve_scenario_for_transaction(transaction_id)
+    scenario = resolve_scenario_for_transaction(transaction)
     case_id = f"case_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
 
@@ -158,6 +266,7 @@ def run_pipeline(
     if not created:
         _log(resolved_case_id, transaction_id, "Lost the create race to a concurrent request -- returning its case")
         existing = store.get_case(resolved_case_id) or {}
+        existing_assigned_uid = existing.get("assigned_analyst_id")
         return {
             "case_id": resolved_case_id,
             "transaction_id": transaction_id,
@@ -165,6 +274,8 @@ def run_pipeline(
             "outcome": (existing.get("policy_decision") or {}).get("outcome"),
             "rule_id": (existing.get("policy_decision") or {}).get("rule_id"),
             "duplicate": True,
+            "assignment": _analyst_summary(directory.get(existing_assigned_uid) if existing_assigned_uid else None),
+            "decision_summary": _decision_summary_from_document(existing),
         }
 
     store.append_audit_event(
@@ -183,7 +294,20 @@ def run_pipeline(
     )
 
     if not detection.anomaly_tags:
-        return _resolve_clean_transaction(store, case_id, transaction_id, now)
+        # Rule P-004 (Contracts S16) has always required risk_score <= LOW
+        # *alongside* anomaly_tags = [] for AUTO_RESOLVE -- a zero-anomaly-tag
+        # transaction that Detection still scored MEDIUM/HIGH is CLEAN but not
+        # LOW-risk, so it is not eligible for automatic resolution (business
+        # rule: "CLEAN + LOW -> AUTO_RESOLVED"; MEDIUM/HIGH clean transactions
+        # must reach a human). There is still nothing for the Evidence Agent
+        # to investigate (zero anomaly tags), so Evidence/Reasoning/Robustness/
+        # Policy are still never invoked for this case either way -- only the
+        # final disposition differs based on risk_band.
+        if detection.risk_band == RiskBand.LOW:
+            return _resolve_clean_transaction(store, case_id, transaction_id, now, detection)
+        return _escalate_clean_transaction_with_elevated_risk(
+            store, case_id, transaction_id, now, detection, directory, assignment
+        )
 
     try:
         return _investigate_flagged_transaction(
@@ -213,7 +337,7 @@ def run_pipeline(
 
 
 def _resolve_clean_transaction(
-    store: CaseStore, case_id: str, transaction_id: str, now: datetime
+    store: CaseStore, case_id: str, transaction_id: str, now: datetime, detection: DetectionOutput
 ) -> dict[str, object]:
     _log(case_id, transaction_id, "No anomaly tags -- skipping investigation entirely, resolving immediately")
     resolved_at = datetime.now(timezone.utc)
@@ -237,6 +361,61 @@ def _resolve_clean_transaction(
         "outcome": None,
         "rule_id": None,
         "duplicate": False,
+        "assignment": None,
+        "decision_summary": _decision_summary(detection, None, None, None),
+    }
+
+
+def _escalate_clean_transaction_with_elevated_risk(
+    store: CaseStore,
+    case_id: str,
+    transaction_id: str,
+    now: datetime,
+    detection: DetectionOutput,
+    directory: AnalystDirectory,
+    assignment: AssignmentStore,
+) -> dict[str, object]:
+    """A transaction with zero anomaly tags but a MEDIUM/HIGH risk_band: CLEAN
+    but not LOW-risk, so (per Rule P-004's own long-standing risk_score <= LOW
+    condition) it is not eligible for AUTO_RESOLVE. There is still nothing for
+    the Evidence Agent to investigate -- zero anomaly tags means no evidence
+    floor requires any tool call -- so Evidence/Reasoning/Robustness/Policy
+    are not invoked, exactly as for the LOW-risk clean path. This mirrors the
+    existing fail-safe path's pattern (above) of reaching HUMAN_REVIEW without
+    ever producing a PolicyDecision, rather than fabricating one Policy never
+    actually evaluated.
+    """
+    _log(
+        case_id,
+        transaction_id,
+        f"No anomaly tags but risk_band={detection.risk_band.value} (not LOW) -- not eligible for auto-resolve, routing to human review without investigation",
+    )
+    escalate_time = datetime.now(timezone.utc)
+    store.update_case(case_id, {"state": CaseState.ESCALATED.value, "updated_at": escalate_time})
+    store.append_audit_event(
+        case_id,
+        AuditEvent(
+            audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
+            case_id=case_id,
+            transaction_id=transaction_id,
+            event_type="ESCALATED",
+            actor_type=ActorType.SYSTEM,
+            output_snapshot={
+                "reason": f"zero anomaly tags but risk_band={detection.risk_band.value} (not LOW); not eligible for auto-resolve"
+            },
+            occurred_at=escalate_time,
+        ),
+    )
+    assignment_summary = _transition_to_human_review(store, case_id, transaction_id, directory, assignment)
+    return {
+        "case_id": case_id,
+        "transaction_id": transaction_id,
+        "state": CaseState.HUMAN_REVIEW.value,
+        "outcome": None,
+        "rule_id": None,
+        "duplicate": False,
+        "assignment": assignment_summary,
+        "decision_summary": _decision_summary(detection, None, None, None),
     }
 
 
@@ -379,6 +558,7 @@ def _investigate_flagged_transaction(
         ),
     )
 
+    assignment_summary: dict[str, str] | None = None
     if policy_decision.outcome.value == "AUTO_RESOLVE":
         final_state = CaseState.AUTO_RESOLVED
         now = datetime.now(timezone.utc)
@@ -402,7 +582,7 @@ def _investigate_flagged_transaction(
         # view is exactly the set of cases awaiting that review. ESCALATED is
         # still recorded as its own audit-trail moment immediately before it.
         _transition(store, case_id, transaction_id, CaseState.ESCALATED, "ESCALATED")
-        _transition_to_human_review(store, case_id, transaction_id, directory, assignment)
+        assignment_summary = _transition_to_human_review(store, case_id, transaction_id, directory, assignment)
         final_state = CaseState.HUMAN_REVIEW
 
     _log(case_id, transaction_id, f"Pipeline complete: final_state={final_state.value}")
@@ -414,6 +594,8 @@ def _investigate_flagged_transaction(
         "outcome": policy_decision.outcome.value,
         "rule_id": policy_decision.rule_id,
         "duplicate": False,
+        "assignment": assignment_summary,
+        "decision_summary": _decision_summary(detection, evidence_bundle, reasoning_output.findings, policy_decision),
     }
 
 
@@ -440,7 +622,7 @@ def _transition_to_human_review(
     transaction_id: str,
     directory: AnalystDirectory,
     assignment: AssignmentStore,
-) -> None:
+) -> dict[str, str] | None:
     """Transition into HUMAN_REVIEW and fire deterministic round-robin
     assignment exactly once (V1 Authoritative Ruling Part 4/5): every code
     path that first enters HUMAN_REVIEW -- the normal ESCALATE outcome and the
@@ -449,9 +631,16 @@ def _transition_to_human_review(
     never fire on a later ESCALATE_SENIOR reassignment (that is a direct
     assigned_analyst_id overwrite in services/api/cases.py, not a re-entry
     into HUMAN_REVIEW).
+
+    :return: The judge-facing assignment summary (name/email) for whichever
+        analyst was assigned, or None if the pool was empty -- reuses the
+        active-analyst records already fetched below rather than issuing a
+        second directory lookup.
     """
-    active_uids = [record.uid for record in directory.list_active_analysts()]
+    active_records = directory.list_active_analysts()
+    active_uids = [record.uid for record in active_records]
     assigned_uid = assignment.assign_next_analyst(active_uids)
+    assigned_record = next((r for r in active_records if r.uid == assigned_uid), None) if assigned_uid else None
 
     now = datetime.now(timezone.utc)
     updates: dict[str, object] = {"state": CaseState.HUMAN_REVIEW.value, "updated_at": now}
@@ -486,3 +675,4 @@ def _transition_to_human_review(
             ),
         )
     _log(case_id, transaction_id, f"State transition -> HUMAN_REVIEW (assigned_analyst_id={assigned_uid})")
+    return _analyst_summary(assigned_record)

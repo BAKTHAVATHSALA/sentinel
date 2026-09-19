@@ -100,6 +100,7 @@ describe("HumanDecisionPanel", () => {
       assigned_analyst_id: "uid_test_analyst",
       decided_at: "2026-09-15T15:00:00Z",
       idempotent_replay: false,
+      target_analyst_display_name: null,
     });
     const onDecided = vi.fn();
     const user = userEvent.setup();
@@ -132,6 +133,7 @@ describe("HumanDecisionPanel", () => {
       assigned_analyst_id: "uid_senior_1",
       decided_at: "2026-09-15T15:00:00Z",
       idempotent_replay: false,
+      target_analyst_display_name: "Elena Cho",
     });
     const user = userEvent.setup();
     render(<HumanDecisionPanel caseDoc={caseWithSeniorAvailable} onDecided={() => {}} />);

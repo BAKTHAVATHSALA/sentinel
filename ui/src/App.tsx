@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { CaseQueuePage } from "./pages/CaseQueuePage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
+import { InvestigationConsolePage } from "./pages/InvestigationConsolePage";
 import { LoginPage } from "./pages/LoginPage";
 import { useAuth } from "./lib/auth";
 
@@ -39,6 +40,15 @@ export function App() {
           </RequireAuth>
         }
       />
+      {/*
+        The Transaction Console is a genuinely PUBLIC route, not wrapped in
+        RequireAuth: it submits to the unauthenticated POST /transactions
+        ingestion endpoint and never calls GET /cases/{case_id}, so it must
+        load and work in a completely logged-out browser -- it reads no
+        per-analyst data and requires no Firebase session. Only "/" and
+        "/case/:caseId" (the Analyst Portal) stay behind RequireAuth.
+      */}
+      <Route path="/investigate" element={<InvestigationConsolePage />} />
     </Routes>
   );
 }

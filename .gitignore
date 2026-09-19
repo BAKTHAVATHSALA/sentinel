@@ -13,6 +13,10 @@ env/
 .env.*
 !.env.example
 
+# Locally generated demo credentials (scripts/create_demo_analyst_workforce.py)
+# -- Firebase account passwords must never be committed.
+/local/
+
 # IDE
 .vscode/
 .idea/

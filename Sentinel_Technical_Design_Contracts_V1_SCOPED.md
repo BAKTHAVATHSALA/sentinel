@@ -1,11 +1,11 @@
 # Sentinel — Technical Design & Contracts (V1-Scoped)
-## FINAL CONTRACT FREEZE — v1.2
+## FINAL CONTRACT FREEZE — v1.3
 
 **Status:** FROZEN
-**Supersedes:** Technical Design & Contracts v1.1 FINAL FROZEN
+**Supersedes:** Technical Design & Contracts v1.2 FINAL FROZEN
 **Scope:** Contract layer for the V1 prototype only — one Cloud Run service, Firestore only, no Pub/Sub, no BigQuery, no RAG/Vector Search
 **Paired documents (must stay in sync):** `Sentinel_V1_Build_Architecture_v1.1.md`, `Sentinel_V1_Build_Checklist.pdf`
-**Freeze gate:** Must be accepted before Phase 4 (Policy) implementation, per the V1 Build Checklist
+**Freeze gate:** Must be accepted before Phase 4 (Policy) implementation, per the V1 Build Checklist. v1.3 is a narrow, reviewed amendment to Rule P-004 only (§0.1) — it does not reopen the Phase 4 gate for any other rule or section.
 
 ---
 
@@ -26,6 +26,23 @@
 | Split the Build/Don't-Build boundary into three lists | **Build (V1)**, **Deferred (named V2 upgrades, not rejected)**, **Don't Build (rejected for any version of this hackathon submission)** — the original document blurred "not now" and "not ever" into one list. |
 
 Everything not listed above is unchanged: the authority model, all safety invariants, the Evidence Agent's bounded-loop constraints, the Policy engine's `AUTO_RESOLVE | ESCALATE`-only output, the human decision contract, and `ESCALATE_SENIOR` naming.
+
+---
+
+# 0.1 Change Log — v1.3 amendment (what changed from v1.2 and why)
+
+**Amendment scope:** Rule P-004 only (§16), and its supporting explanation in §6.3. No other rule, contract, or safety invariant is altered by this amendment.
+
+| Change | Reason |
+|---|---|
+| **Amended Rule P-004's auto-resolve condition** from `(anomaly_tags[] ∩ HARD_RISK_TAGS) = ∅` to `anomaly_tags[] = []` | Product/policy review identified a semantic conflation between two distinct concepts: **RISK** (how risky `risk_score`/`risk_band` judges the transaction to be) and **CLEAN** (whether Sentinel detected zero anomaly signals of any kind). Under v1.2, a transaction could carry a statistical anomaly tag (`NEW_DEVICE`, `UNUSUAL_LOCATION`, `UNUSUAL_AMOUNT`) and still auto-resolve solely because `risk_score` happened to be LOW — silently communicating "LOW risk = automatically safe." Those are not the same claim: a risk signal is still a signal, and a LOW-risk transaction that Sentinel flagged as anomalous is not the same thing as a transaction Sentinel found nothing wrong with. v1.3 makes `AUTO_RESOLVE` mean "LOW risk **and** clean (zero anomaly tags) **and** complete evidence **and** non-HIGH findings," narrowing the automated-resolution surface so that any detected anomaly — statistical or structural — now routes to human review via Rule P-005 (Otherwise), never silently auto-resolves. |
+| **Bumped Policy `RULE_SET_VERSION` from `1.0.0` to `1.1.0`** | Rule P-004's condition text changed. Safety Invariant 7 (§30) requires every `PolicyDecision` to record `rule_id` + `rule_version`; bumping the shared rule-set version ensures a decision made under the old (narrower) auto-resolve gate remains distinguishable in Firestore from a decision made under this amendment, even though `rule_id` is unchanged (`P-004`). Rules P-001/P-002/P-003/P-005 are textually unchanged but share the same rule-set version field, so their recorded `rule_version` also advances to `1.1.0` from this point forward — this reflects when the decision was made, not that their conditions changed. |
+
+**Previous P-004 behavior (v1.2):** a LOW-risk, evidence-complete transaction could auto-resolve as long as no *structural* (`HARD_RISK_TAGS`) tag was present — a statistical tag alone (`NEW_DEVICE`, `UNUSUAL_LOCATION`, `UNUSUAL_AMOUNT`) did not block auto-resolve.
+
+**New P-004 behavior (v1.3):** a transaction auto-resolves only if it is LOW risk **and** carries zero anomaly tags of any kind **and** evidence is complete **and** `findings.risk_assessment != HIGH`. Any anomaly tag — statistical or structural — now forces the case through to Rule P-005 (Otherwise) → `ESCALATE` (human review). This intentionally narrows the `AUTO_RESOLVE` surface; it can only move cases from `AUTO_RESOLVE` to `ESCALATE`, never the reverse (verified: `HARD_RISK_TAGS` members were already excluded from auto-resolve under v1.2, so they remain excluded under the strictly stricter v1.3 condition — Safety Invariant 6 is preserved unchanged).
+
+Everything not listed above is unchanged: `HARD_RISK_TAGS` (§6.3) and its membership, Rules P-001/P-002/P-003/P-005 (conditions and priorities), the `PolicyOutcome` enum (`AUTO_RESOLVE | ESCALATE` only, still no `BLOCK_HOLD`/`AUTO_DECLINE` path), all 10 Safety Invariants (§30), the Human Decision Contract (§18), the Evidence Agent, Gemini Reasoning, Robustness scoring, detection thresholds, authentication/roles, the Firestore schema, and the 4-endpoint API surface (§23.1).
 
 ---
 
@@ -241,11 +258,11 @@ LINKED_ENTITY_ANOMALY
 
 `KYC_ANOMALY` is optional/stretch, only if `get_mock_kyc_status` is implemented. `IMPOSSIBLE_TRAVEL` and `UNUSUAL_TIME` are out of scope for V1 — no fixture data models them, and adding the tags without corresponding evidence would create an untestable rule path.
 
-## 6.3 Hard-risk tags — resolves the P-004 ambiguity
+## 6.3 Hard-risk tags, clean transactions, and the v1.3 auto-resolve requirement
 
 Anomaly tags are split into two categories, based on whether the signal is something `risk_score` structurally can already see.
 
-**Statistical tags** — deviations from the customer's *own* baseline. These are exactly the kind of feature `risk_score` is trained on, so gating auto-resolve on them again would double-count the same signal:
+**Statistical tags** — deviations from the customer's *own* baseline. These are exactly the kind of feature `risk_score` is trained on:
 
 ```text
 NEW_DEVICE
@@ -263,7 +280,18 @@ HARD_RISK_TAGS: AnomalyTag[] = [
 ]
 ```
 
-`HARD_RISK_TAGS` is referenced by name in Policy Rule P-004 (§18) — it must not be reimplemented as an inline literal in Policy code; both must reference this single defined constant so the two never drift out of sync.
+`HARD_RISK_TAGS` is referenced by name in Policy Rule P-004 (§18) — it must not be reimplemented as an inline literal in Policy code; both must reference this single defined constant so the two never drift out of sync. `HARD_RISK_TAGS` remains the categorical, risk-score-independent structural veto described by Safety Invariant 6 (§30): a transaction carrying any structural tag can never auto-resolve, regardless of `risk_score` — this is unchanged by the v1.3 amendment below.
+
+### RISK vs. ANOMALY vs. CLEAN vs. DISPOSITION (v1.3)
+
+`risk_score`/`risk_band` and `anomaly_tags[]` answer two different questions, and Rule P-004 (§16) must not conflate them:
+
+- **RISK** — how risky does `risk_score` judge this transaction to be (`LOW`/`MEDIUM`/`HIGH`)? A statistical tag such as `NEW_DEVICE` is already one of the features `risk_score` was computed from, so it is legitimately possible for a transaction carrying a statistical tag to still score `LOW` overall.
+- **ANOMALY** — did Sentinel's deterministic tagging step detect *any* deviation worth naming, statistical or structural?
+- **CLEAN** — the absence of anomaly: `anomaly_tags[] = []`.
+- **DISPOSITION** — what Policy does about it.
+
+Prior to v1.3, Rule P-004 treated "`risk_band` = LOW" as sufficient grounds for `AUTO_RESOLVE` as long as no *structural* tag was present, which meant `LOW` + a statistical tag (e.g. `NEW_DEVICE`) could still auto-resolve. This conflated **LOW risk** with **CLEAN**, which are not the same claim: `risk_score` having already priced a statistical signal into its *risk level* does not mean that signal should be silently waved through at the *disposition* stage. As of v1.3, Rule P-004 additionally requires the transaction to be **CLEAN** (`anomaly_tags[] = []`) before it is eligible for `AUTO_RESOLVE` — see the amended condition in §16. A transaction that is `LOW` risk but carries any anomaly tag (statistical or structural) is therefore **not** auto-resolve-eligible and is routed to human review via Rule P-005 (Otherwise).
 
 ---
 
@@ -625,17 +653,17 @@ AND evidence.completeness = COMPLETE
 
 `HIGH_VALUE_THRESHOLD` is an evaluation-tuned parameter, selected from the held-out evaluation set using an explicit precision/recall or cost-of-error tradeoff, and recorded with the rule version.
 
-## Rule P-004 — Low-risk eligible cases (auto-resolve) — HARD_RISK_TAGS now explicit
+## Rule P-004 — Clean, low-risk eligible cases (auto-resolve) — amended in v1.3
 
 ```text
 IF risk_score <= LOW
 AND evidence.completeness = COMPLETE
-AND (anomaly_tags[] ∩ HARD_RISK_TAGS) = ∅
+AND anomaly_tags[] = []
 AND findings.risk_assessment != HIGH
     -> AUTO_RESOLVE
 ```
 
-Where `HARD_RISK_TAGS` is the constant defined in §6.3: `{ MERCHANT_RISK, LINKED_ENTITY_ANOMALY, KYC_ANOMALY }`. A transaction carrying only statistical tags (`NEW_DEVICE`, `UNUSUAL_LOCATION`, `UNUSUAL_AMOUNT`) is eligible for auto-resolve if the other conditions hold — those tags are already priced into `risk_score`. A transaction carrying any structural tag is never eligible for auto-resolve regardless of `risk_score`, because structural evidence is invisible to a per-transaction score by construction.
+**v1.3 amendment (§0.1):** the condition now requires `anomaly_tags[] = []` — zero anomaly tags of any kind — rather than merely the absence of a `HARD_RISK_TAGS` member. A transaction carrying *any* anomaly tag, statistical (`NEW_DEVICE`, `UNUSUAL_LOCATION`, `UNUSUAL_AMOUNT`) or structural (`MERCHANT_RISK`, `LINKED_ENTITY_ANOMALY`, `KYC_ANOMALY`, i.e. `HARD_RISK_TAGS` as defined in §6.3), is no longer eligible for auto-resolve, regardless of `risk_score`. `LOW` risk no longer implies `AUTO_RESOLVE`; it is a necessary condition, not a sufficient one — see §6.3's RISK vs. ANOMALY vs. CLEAN vs. DISPOSITION distinction. Only a transaction that is both `LOW` risk **and** anomaly-free (`CLEAN`) — with complete evidence and non-HIGH findings — auto-resolves. Any other LOW-risk transaction, and every MEDIUM/HIGH-risk transaction, falls through to Rule P-005 (Otherwise) → `ESCALATE` (human review), unless an earlier rule (P-001/P-002/P-003) already matched it.
 
 ## Otherwise
 
@@ -1095,10 +1123,12 @@ AUTOMATED BLOCK      = NOT ALLOWED, at any risk_score, for any HARD_RISK_TAGS me
 
 # 34. Freeze Statement
 
-**Sentinel Technical Design & Contracts, V1-Scoped, v1.2, is frozen for implementation.**
+**Sentinel Technical Design & Contracts, V1-Scoped, v1.3, is frozen for implementation.**
 
 This document, the V1 Build Architecture (v1.1), and the V1 Build Checklist now describe the same system, with no infrastructure or schema disagreement between them. No implementation may introduce an automated `BLOCK_HOLD` path, `AUTO_DECLINE`, or any equivalent automated blocking behavior. No implementation may introduce Pub/Sub, BigQuery, or RAG into the V1 build — these are named, deliberate V2 upgrades, not omissions.
 
 Any future change to these safety boundaries, or any promotion of a deferred item into V1 scope, requires an explicit review and a contract-version change.
 
-**Next step: Phase 4 (Policy) implementation, gated on this frozen contract, in particular §6.3 and Rule P-004.**
+**v1.3 note:** this revision is a narrow, reviewed amendment to Rule P-004's auto-resolve condition and its §6.3 explanation only (see §0.1) — reviewed and approved specifically because it strictly narrows the `AUTO_RESOLVE` surface and leaves all 10 Safety Invariants (§30), `HARD_RISK_TAGS`, Rules P-001/P-002/P-003/P-005, and every other section of this contract unchanged. It does not reopen the Phase 4 gate for any other component.
+
+**Next step (unchanged): Phase 4 (Policy) implementation, gated on this frozen contract, in particular §6.3 and Rule P-004.**

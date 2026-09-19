@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict
 
 from shared.auth.dependencies import get_analyst_directory, get_current_analyst
@@ -98,6 +98,7 @@ def _to_queue_summary(document: dict[str, object]) -> QueueCaseSummary:
 
 @router.get("/cases")
 def list_cases(
+    response: Response,
     caller: AuthenticatedAnalyst = Depends(get_current_analyst),
     store: CaseStore = Depends(get_case_store),
 ) -> list[QueueCaseSummary]:
@@ -108,7 +109,14 @@ def list_cases(
     global analyst queue in V1." A senior analyst sees exactly the cases
     escalated to them; an analyst sees exactly the cases round-robin assigned
     to them. AUTO_RESOLVE/FINALIZED cases are never returned here (state filter).
+
+    Response headers X-Analyst-Display-Name/X-Analyst-Role additively expose
+    the already-server-resolved caller identity (never client-supplied) so
+    the frontend's persistent nav bar can render it without a new endpoint or
+    a breaking change to this endpoint's existing array response body.
     """
+    response.headers["X-Analyst-Display-Name"] = caller.display_name
+    response.headers["X-Analyst-Role"] = caller.role.value
     documents = store.list_cases_by_state_and_assigned_analyst(CaseState.HUMAN_REVIEW.value, caller.uid)
     return [_to_queue_summary(doc) for doc in documents]
 
@@ -142,6 +150,7 @@ class CounterfactualResult(BaseModel):
 @router.get("/cases/{case_id}")
 def get_case(
     case_id: str,
+    response: Response,
     simulate_without: str | None = Query(default=None),
     caller: AuthenticatedAnalyst = Depends(get_current_analyst),
     store: CaseStore = Depends(get_case_store),
@@ -152,6 +161,14 @@ def get_case(
     the authenticated caller (V1 Authoritative Ruling Part 6 -- "do not expose
     arbitrary cases merely because the user is authenticated").
 
+    A case that doesn't exist and a case that exists but isn't assigned to
+    the caller return the IDENTICAL 404 response (same status, same detail
+    text) -- deliberately consistent so neither the frontend nor an external
+    observer can distinguish "no such case" from "exists but not yours" (a
+    resource-enumeration side channel otherwise). The underlying ownership
+    rule is unchanged; only the two failure responses were made
+    indistinguishable.
+
     `?simulate_without=<fact_id>` additively attaches a fresh, non-persisted
     `counterfactual` field (mega-prompt Section 9/10): rebuilds the evidence
     bundle without that fact, re-invokes Reasoning for real, and reports
@@ -161,13 +178,19 @@ def get_case(
     response additively includes `available_seniors` (name/email options for
     the UI's escalation dropdown, mega-prompt Section G.5) -- not a fifth
     endpoint, reusing this same already-fetched case detail response.
+
+    Response headers X-Analyst-Display-Name/X-Analyst-Role -- see list_cases.
     """
+    response.headers["X-Analyst-Display-Name"] = caller.display_name
+    response.headers["X-Analyst-Role"] = caller.role.value
+
     document = store.get_case(case_id)
+    case_not_available = HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
     if document is None:
-        raise HTTPException(status_code=404, detail=f"Case '{case_id}' not found")
+        raise case_not_available
 
     if document.get("assigned_analyst_id") != caller.uid:
-        raise HTTPException(status_code=403, detail="This case is not assigned to you")
+        raise case_not_available
 
     document = dict(document)
 
@@ -239,7 +262,16 @@ def _compute_counterfactual(
 
 
 class DecisionResponse(BaseModel):
-    """Confirmation returned after a human decision is recorded."""
+    """Confirmation returned after a human decision is recorded.
+
+    `target_analyst_display_name` is additive (Q11 verification, same
+    non-breaking pattern as the Addendum 1 Point 4 `counterfactual`
+    addition): populated only for a successful ESCALATE_SENIOR, from the
+    same directory record already fetched and validated earlier in
+    post_decision -- so the frontend's escalation confirmation screen can
+    show a name instead of the raw `assigned_analyst_id` UID, without a
+    second lookup and without ever calling GET /cases/{case_id}.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -249,6 +281,7 @@ class DecisionResponse(BaseModel):
     assigned_analyst_id: str | None
     decided_at: datetime
     idempotent_replay: bool
+    target_analyst_display_name: str | None = None
 
 
 REASON_REQUIRED_ACTIONS = (HumanAction.CLEAR, HumanAction.BLOCK_HOLD, HumanAction.ESCALATE_SENIOR)
@@ -308,6 +341,7 @@ def post_decision(
         )
 
     target_analyst_id: str | None = None
+    target_analyst_display_name: str | None = None
     if request.action == HumanAction.ESCALATE_SENIOR:
         if caller.role == AnalystRole.SENIOR_ANALYST:
             raise HTTPException(status_code=403, detail="A senior analyst cannot escalate further")
@@ -317,6 +351,7 @@ def post_decision(
         if target_record is None or target_record.role != AnalystRole.SENIOR_ANALYST or not target_record.active:
             raise HTTPException(status_code=400, detail="target_analyst_id must be a currently active senior analyst")
         target_analyst_id = target_record.uid
+        target_analyst_display_name = target_record.display_name
 
     decided_at = datetime.now(timezone.utc)
     reason = (request.reason or "").strip()
@@ -388,4 +423,5 @@ def post_decision(
         assigned_analyst_id=current_document.get("assigned_analyst_id"),
         decided_at=decided_at,
         idempotent_replay=(outcome == "idempotent"),
+        target_analyst_display_name=target_analyst_display_name,
     )

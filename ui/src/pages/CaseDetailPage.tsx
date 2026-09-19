@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { fetchCase, ApiError } from "../lib/api";
+import { AnalystNavBar } from "../components/AnalystNavBar";
 import { CaseSpine } from "../components/CaseSpine";
 import { PipelineStrip } from "../components/PipelineStrip";
 import { ExhibitCard } from "../components/ExhibitCard";
@@ -8,36 +9,50 @@ import { FindingsPanel } from "../components/FindingsPanel";
 import { CounterfactualPanel } from "../components/CounterfactualPanel";
 import { PolicyLedgerEntry } from "../components/PolicyLedgerEntry";
 import { HumanDecisionPanel } from "../components/HumanDecisionPanel";
+import { DecisionConfirmationScreen } from "../components/DecisionConfirmationScreen";
 import { DecisionRecord } from "../components/DecisionRecord";
 import { CitationThreadProvider } from "../components/CitationThread";
 import {
   CaseDetailError,
+  CaseUnavailableNotice,
   EmptyInvestigationNotice,
   LoadingSkeleton,
   PartialEvidenceBanner,
   ReasoningFailedNotice,
 } from "../components/StateNotices";
-import type { CaseDocument } from "../lib/types";
+import type { CaseDocument, DecisionResponse } from "../lib/types";
 
 export function CaseDetailPage() {
   const { caseId } = useParams<{ caseId: string }>();
   const [caseDoc, setCaseDoc] = useState<CaseDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [counterfactualLoading, setCounterfactualLoading] = useState(false);
   const [counterfactualError, setCounterfactualError] = useState<string | null>(null);
+  // Set only from a just-succeeded POST /cases/{case_id}/decision response.
+  // While this is non-null, the page renders the confirmation screen built
+  // from it and never calls fetchCase again -- critical for ESCALATE_SENIOR,
+  // where a refetch would immediately (and correctly) fail the ownership
+  // check the caller just gave up.
+  const [decisionResult, setDecisionResult] = useState<DecisionResponse | null>(null);
 
   const load = useCallback(() => {
     if (!caseId) return;
     setError(null);
+    setErrorStatus(null);
     fetchCase(caseId)
       .then(setCaseDoc)
-      .catch((e) => setError(e instanceof ApiError ? e.message : `Could not load case ${caseId}.`));
+      .catch((e) => {
+        setError(e instanceof ApiError ? e.message : `Could not load case ${caseId}.`);
+        setErrorStatus(e instanceof ApiError ? e.status : null);
+      });
   }, [caseId]);
 
   useEffect(() => {
+    if (decisionResult) return; // never refetch once a decision has been confirmed
     load();
-  }, [load, reloadToken]);
+  }, [load, reloadToken, decisionResult]);
 
   function requestCounterfactual(factId: string) {
     if (!caseId) return;
@@ -49,8 +64,36 @@ export function CaseDetailPage() {
       .finally(() => setCounterfactualLoading(false));
   }
 
-  if (error) return <CaseDetailError message={error} onRetry={() => setReloadToken((t) => t + 1)} />;
-  if (!caseDoc) return <LoadingSkeleton />;
+  if (decisionResult) {
+    return (
+      <div className="flex h-screen flex-col">
+        <AnalystNavBar />
+        <DecisionConfirmationScreen decision={decisionResult} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen flex-col">
+        <AnalystNavBar />
+        {errorStatus === 404 ? (
+          <CaseUnavailableNotice message={error} />
+        ) : (
+          <CaseDetailError message={error} onRetry={() => setReloadToken((t) => t + 1)} />
+        )}
+      </div>
+    );
+  }
+
+  if (!caseDoc) {
+    return (
+      <div className="flex h-screen flex-col">
+        <AnalystNavBar />
+        <LoadingSkeleton />
+      </div>
+    );
+  }
 
   const exhibitNumbers: Record<string, number> = {};
   caseDoc.evidence_bundle?.facts.forEach((fact, i) => {
@@ -61,11 +104,7 @@ export function CaseDetailPage() {
 
   return (
     <div className="flex h-screen flex-col">
-      <div className="border-b border-[var(--color-rule)] px-4 py-2">
-        <Link to="/" className="text-[12px] text-[var(--color-text-muted)]">
-          &larr; Case queue
-        </Link>
-      </div>
+      <AnalystNavBar />
 
       <div className="px-4 pt-4">
         <PipelineStrip caseDoc={caseDoc} />
@@ -79,7 +118,7 @@ export function CaseDetailPage() {
 
           <div className="min-w-[560px] flex-1 overflow-y-auto">
             {!investigated ? (
-              <EmptyInvestigationNotice />
+              <EmptyInvestigationNotice state={caseDoc.state} />
             ) : (
               <>
                 {caseDoc.evidence_bundle!.completeness === "PARTIAL" && (
@@ -125,9 +164,7 @@ export function CaseDetailPage() {
               />
             )}
             {caseDoc.policy_decision && <PolicyLedgerEntry decision={caseDoc.policy_decision} />}
-            {caseDoc.state === "HUMAN_REVIEW" && (
-              <HumanDecisionPanel caseDoc={caseDoc} onDecided={() => setReloadToken((t) => t + 1)} />
-            )}
+            {caseDoc.state === "HUMAN_REVIEW" && <HumanDecisionPanel caseDoc={caseDoc} onDecided={setDecisionResult} />}
             {caseDoc.state === "FINALIZED" && <DecisionRecord caseDoc={caseDoc} />}
             {caseDoc.state === "AUTO_RESOLVED" && (
               <div className="p-4 text-[13px] text-[var(--color-text-muted)]">

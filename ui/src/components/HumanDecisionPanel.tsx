@@ -3,7 +3,7 @@ import * as Checkbox from "@radix-ui/react-checkbox";
 import { PenGlyph } from "./icons";
 import { submitDecision, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import type { CaseDocument, HumanAction } from "../lib/types";
+import type { CaseDocument, DecisionResponse, HumanAction } from "../lib/types";
 
 const ACTION_LABELS: Record<HumanAction, string> = {
   CLEAR: "Clear",
@@ -29,7 +29,7 @@ export function HumanDecisionPanel({
   onDecided,
 }: {
   caseDoc: CaseDocument;
-  onDecided: () => void;
+  onDecided: (decision: DecisionResponse) => void;
 }) {
   const { user } = useAuth();
   const [acknowledged, setAcknowledged] = useState(false);
@@ -54,7 +54,7 @@ export function HumanDecisionPanel({
     setSubmitting(true);
     setError(null);
     try {
-      await submitDecision(caseDoc.case_id, {
+      const decision = await submitDecision(caseDoc.case_id, {
         case_id: caseDoc.case_id,
         analyst_id: user.uid,
         action: pendingAction,
@@ -63,7 +63,7 @@ export function HumanDecisionPanel({
         client_timestamp: new Date().toISOString(),
         target_analyst_id: isEscalation ? targetSeniorUid : null,
       });
-      onDecided();
+      onDecided(decision);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not record the decision. Try again.");
     } finally {

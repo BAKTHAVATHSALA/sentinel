@@ -94,10 +94,18 @@ def _rule_p003(ctx: _PolicyContext) -> bool:
 
 
 def _rule_p004(ctx: _PolicyContext) -> bool:
+    # v1.3 amendment (Contracts S0.1/S6.3/S16): auto-resolve requires a
+    # CLEAN transaction -- zero anomaly tags of any kind -- not merely the
+    # absence of a HARD_RISK_TAGS member. A statistical tag (NEW_DEVICE,
+    # UNUSUAL_LOCATION, UNUSUAL_AMOUNT) now blocks auto-resolve exactly like
+    # a structural tag does; LOW risk_band alone is necessary but no longer
+    # sufficient. This is a strict narrowing of the old condition, so any
+    # transaction excluded before (a HARD_RISK_TAGS member) is still
+    # excluded now -- Safety Invariant 6 holds a fortiori.
     return (
         ctx.detection.risk_band == RiskBand.LOW  # "risk_score <= LOW"
         and ctx.completeness == EvidenceCompleteness.COMPLETE
-        and not ctx.hard_risk_tags_present
+        and not ctx.detection.anomaly_tags
         and ctx.findings is not None
         and ctx.findings.risk_assessment != RiskBand.HIGH
     )
@@ -135,13 +143,18 @@ def _build_reasons(rule_id: str, ctx: _PolicyContext) -> list[str]:
         return [
             f"risk_band = {ctx.detection.risk_band.value} (LOW)",
             "evidence.completeness = COMPLETE",
-            "no HARD_RISK_TAGS present in anomaly_tags",
+            "anomaly_tags = [] (transaction is clean)",
             f"findings.risk_assessment = {ctx.findings.risk_assessment.value} (!= HIGH)",  # type: ignore[union-attr]
         ]
     # P-005 (Otherwise)
     reasons = ["No named rule (P-001..P-004) matched; forced-escalation default"]
     if ctx.findings is None:
         reasons.append(f"reasoning.status = {ctx.reasoning_output.status.value} -- no CaseFindings available")
+    if ctx.detection.anomaly_tags and not ctx.hard_risk_tags_present:
+        reasons.append(
+            f"anomaly_tags present: {[tag.value for tag in ctx.detection.anomaly_tags]} "
+            "-- Rule P-004 requires a clean transaction (zero anomaly tags) to auto-resolve"
+        )
     if ctx.hard_risk_tags_present:
         reasons.append(f"HARD_RISK_TAGS present: {list(ctx.hard_risk_tags_present)}")
     return reasons

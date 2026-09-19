@@ -68,6 +68,7 @@ def generate_normal_transactions(
     count: int,
     rng: random.Random,
     base_time: datetime | None = None,
+    device_pool: list[str] | None = None,
 ) -> list[Transaction]:
     """Generate a sequence of normal baseline transactions for a customer profile.
 
@@ -76,6 +77,14 @@ def generate_normal_transactions(
     :param count: Number of transactions to generate.
     :param rng: Seeded random number generator.
     :param base_time: Reference starting time (defaults to 2026-09-01T00:00:00 UTC).
+    :param device_pool: Optional set of device IDs to rotate baseline transactions
+        across (e.g. a customer's phone and laptop), so "known device" naturally
+        covers more than one physical device. Defaults to None, which preserves
+        the original single-device behavior bit-for-bit (every baseline
+        transaction defaults to customer.primary_device_id inside
+        generate_single_transaction, with no extra rng draw) -- every existing
+        committed seed scenario's generation is completely unaffected by this
+        parameter's addition.
     :return: List of valid Transaction models representing normal baseline behavior.
     """
     start_time = base_time or datetime(2026, 9, 1, 9, 0, 0, tzinfo=timezone.utc)
@@ -93,6 +102,7 @@ def generate_normal_transactions(
 
         merchant = rng.choice(merchants)
         channel = Channel.WEB if rng.random() > 0.3 else Channel.MOBILE
+        device_id = rng.choice(device_pool) if device_pool else None
 
         tx = generate_single_transaction(
             transaction_id=f"tx_norm_{customer.customer_id}_{i:04d}",
@@ -101,6 +111,7 @@ def generate_normal_transactions(
             amount=amount,
             timestamp=current_time,
             channel=channel,
+            device_id=device_id,
         )
         transactions.append(tx)
 

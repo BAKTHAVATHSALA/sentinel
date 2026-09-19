@@ -230,7 +230,11 @@ export interface HumanDecisionRequest {
 
 /** POST /cases/{case_id}/decision response. `final_disposition` is null for
  * ESCALATE_SENIOR (a reassignment, not a finalization -- state stays
- * HUMAN_REVIEW); `assigned_analyst_id` reflects the post-decision owner. */
+ * HUMAN_REVIEW); `assigned_analyst_id` reflects the post-decision owner
+ * (a raw Firebase UID -- a transport value, never rendered as visible text).
+ * `target_analyst_display_name` is additive (Q11 verification fix): set only
+ * for a successful ESCALATE_SENIOR, so the confirmation screen can show a
+ * name without ever calling GET /cases/{case_id} again. */
 export interface DecisionResponse {
   case_id: string;
   state: CaseState;
@@ -238,4 +242,52 @@ export interface DecisionResponse {
   assigned_analyst_id: string | null;
   decided_at: string;
   idempotent_replay: boolean;
+  target_analyst_display_name: string | null;
+}
+
+/** The normal round-robin ANALYST a case was routed to, public/judge-facing
+ * (Transaction Console): display name only -- no email, no Firebase UID, no
+ * role. The same shape `run_pipeline`'s `_analyst_summary` builds, and it is
+ * restricted server-side to `role === "ANALYST"`: a case reassigned to a
+ * SENIOR_ANALYST via the existing ESCALATE_SENIOR workflow is never surfaced
+ * here, even on a duplicate-transaction lookup -- that identity is visible
+ * only inside the authenticated, case-scoped Analyst Portal. */
+export interface AssignmentSummary {
+  analyst_name: string;
+}
+
+/** Public-safe decision summary for the Transaction Console (additive
+ * POST /transactions response field, `shared/pipeline/orchestrator.py:
+ * _decision_summary` / `_decision_summary_from_document`) -- built entirely
+ * from real, already-computed pipeline objects, never inferred or recreated
+ * by the frontend. Deliberately excludes protected case content: no raw
+ * evidence facts, no Gemini findings summary/citations, no robustness
+ * detail, no exact merchant financial figures (only the `merchant_flagged`
+ * boolean), no analyst email/UID. */
+export interface DecisionSummary {
+  risk_assessment: RiskBand | null;
+  anomaly_tags: AnomalyTag[];
+  policy_rule_id: string | null;
+  reasons: string[];
+  evidence_completeness: EvidenceCompleteness | null;
+  merchant_flagged: boolean;
+}
+
+/** POST /transactions response -- the orchestrator's real, un-typed return
+ * dict (shared/pipeline/orchestrator.py:run_pipeline), not a frozen
+ * `shared/contracts` class. This is the ONLY shape the Transaction Console
+ * ever reads; it never calls GET /cases/{case_id}. `outcome`/`rule_id` are
+ * null for a clean transaction that skipped investigation entirely;
+ * `assignment` is non-null only when `state === "HUMAN_REVIEW"` and
+ * round-robin found an active normal ANALYST (null if unassigned, or if the
+ * case's current owner is a SENIOR_ANALYST). */
+export interface TransactionInvestigationResult {
+  case_id: string;
+  transaction_id: string;
+  state: CaseState;
+  outcome: PolicyOutcome | null;
+  rule_id: string | null;
+  duplicate: boolean;
+  assignment: AssignmentSummary | null;
+  decision_summary: DecisionSummary;
 }

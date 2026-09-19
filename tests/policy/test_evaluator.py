@@ -219,23 +219,39 @@ def test_p003_fires_even_when_reasoning_failed() -> None:
 # --- P-004: low-risk eligible cases (the only AUTO_RESOLVE rule) ---
 
 
-def test_p004_low_risk_complete_no_hard_tags_not_high_assessment_auto_resolves() -> None:
+def test_p004_clean_low_risk_transaction_auto_resolves() -> None:
+    """CLEAN (zero anomaly tags) + LOW risk + COMPLETE evidence + non-HIGH findings is the
+    only combination Rule P-004 (v1.3) auto-resolves."""
     decision = _evaluate(RiskBand.LOW, EvidenceCompleteness.COMPLETE, _reasoning_success(RiskBand.LOW))
     assert decision.outcome == PolicyOutcome.AUTO_RESOLVE
     assert decision.rule_id == "P-004"
 
 
-def test_p004_statistical_tags_alone_still_auto_resolve() -> None:
-    """NEW_DEVICE/UNUSUAL_LOCATION/UNUSUAL_AMOUNT are not HARD_RISK_TAGS -- already priced
-    into risk_score."""
+def test_p004_statistical_tags_alone_now_block_auto_resolve() -> None:
+    """v1.3 amendment (Contracts S0.1/S6.3/S16): AUTO_RESOLVE now requires a CLEAN
+    transaction (anomaly_tags = []), not merely the absence of a HARD_RISK_TAGS member.
+    NEW_DEVICE/UNUSUAL_LOCATION/UNUSUAL_AMOUNT are statistical, not structural, tags --
+    already priced into risk_score for RISK purposes -- but their mere presence means the
+    transaction is not CLEAN, so it is no longer eligible to auto-resolve and falls through
+    to P-005 (Otherwise) -> ESCALATE (human review), same as a structural tag would."""
     decision = _evaluate(
         RiskBand.LOW,
         EvidenceCompleteness.COMPLETE,
         _reasoning_success(RiskBand.LOW),
         tags=[AnomalyTag.NEW_DEVICE, AnomalyTag.UNUSUAL_LOCATION, AnomalyTag.UNUSUAL_AMOUNT],
     )
-    assert decision.outcome == PolicyOutcome.AUTO_RESOLVE
-    assert decision.rule_id == "P-004"
+    assert decision.outcome == PolicyOutcome.ESCALATE
+    assert decision.rule_id == "P-005"
+
+
+def test_p004_single_statistical_tag_individually_blocks_auto_resolve() -> None:
+    """Each statistical tag alone (not just all three together) must block auto-resolve."""
+    for tag in (AnomalyTag.NEW_DEVICE, AnomalyTag.UNUSUAL_LOCATION, AnomalyTag.UNUSUAL_AMOUNT):
+        decision = _evaluate(
+            RiskBand.LOW, EvidenceCompleteness.COMPLETE, _reasoning_success(RiskBand.LOW), tags=[tag]
+        )
+        assert decision.rule_id == "P-005", f"{tag} should have blocked auto-resolve"
+        assert decision.outcome == PolicyOutcome.ESCALATE
 
 
 def test_p004_each_hard_risk_tag_individually_blocks_auto_resolve() -> None:
@@ -277,6 +293,33 @@ def test_otherwise_medium_risk_medium_assessment_escalates() -> None:
     decision = _evaluate(RiskBand.MEDIUM, EvidenceCompleteness.COMPLETE, _reasoning_success(RiskBand.MEDIUM))
     assert decision.outcome == PolicyOutcome.ESCALATE
     assert decision.rule_id == "P-005"
+
+
+def test_medium_risk_band_never_auto_resolves_regardless_of_anomaly_tags() -> None:
+    """MEDIUM risk always routes to human review (via P-002 or P-005) -- P-004 is LOW-only."""
+    for tags in (None, [AnomalyTag.NEW_DEVICE]):
+        decision = _evaluate(RiskBand.MEDIUM, EvidenceCompleteness.COMPLETE, _reasoning_success(RiskBand.LOW), tags=tags)
+        assert decision.outcome == PolicyOutcome.ESCALATE
+        assert decision.rule_id != "P-004"
+
+
+def test_high_risk_band_never_auto_resolves_regardless_of_anomaly_tags() -> None:
+    """HIGH risk always routes to human review (via P-002/P-003/P-005) -- P-004 is LOW-only."""
+    for tags in (None, [AnomalyTag.NEW_DEVICE]):
+        decision = _evaluate(RiskBand.HIGH, EvidenceCompleteness.COMPLETE, _reasoning_success(RiskBand.LOW), tags=tags)
+        assert decision.outcome == PolicyOutcome.ESCALATE
+        assert decision.rule_id != "P-004"
+
+
+def test_no_decision_ever_produces_block_hold() -> None:
+    """Safety Invariants 2/3: sweep a representative grid of inputs and confirm the
+    evaluator's PolicyOutcome is always AUTO_RESOLVE or ESCALATE, never BLOCK_HOLD/AUTO_DECLINE
+    (the type system already guarantees this -- this test guards the runtime behavior too)."""
+    for risk_band in (RiskBand.LOW, RiskBand.MEDIUM, RiskBand.HIGH):
+        for tags in (None, [AnomalyTag.NEW_DEVICE], [AnomalyTag.MERCHANT_RISK]):
+            for assessment in (RiskBand.LOW, RiskBand.MEDIUM, RiskBand.HIGH):
+                decision = _evaluate(risk_band, EvidenceCompleteness.COMPLETE, _reasoning_success(assessment), tags=tags)
+                assert decision.outcome in (PolicyOutcome.AUTO_RESOLVE, PolicyOutcome.ESCALATE)
 
 
 # --- Traceability (Safety Invariant 7) ---

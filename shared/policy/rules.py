@@ -7,6 +7,20 @@ These are the frozen rules from Contracts V1-Scoped S16, exactly as
 numbered there: P-001 through P-004, plus the mandatory Otherwise rule.
 `outcome` is restricted to AUTO_RESOLVE | ESCALATE by the PolicyRule
 contract itself -- no rule here can be authored to produce BLOCK_HOLD.
+
+## v1.3 amendment (Contracts S0.1 / S6.3 / S16 Rule P-004)
+
+Rule P-004's condition changed from "(anomaly_tags[] ∩ HARD_RISK_TAGS) = ∅"
+to "anomaly_tags[] = []": auto-resolve now requires a transaction to be
+CLEAN (zero anomaly tags of any kind), not merely free of a *structural*
+HARD_RISK_TAGS member. A LOW risk_score no longer implies AUTO_RESOLVE by
+itself -- see the RISK vs. ANOMALY vs. CLEAN vs. DISPOSITION distinction in
+Contracts S6.3. This strictly narrows the AUTO_RESOLVE surface (every case
+that no longer matches P-004 falls through to P-005/Otherwise -> ESCALATE),
+so Safety Invariant 6 remains satisfied a fortiori. RULE_SET_VERSION is
+bumped accordingly so historical PolicyDecision records made under the old,
+narrower gate stay distinguishable from decisions made under this
+amendment (Safety Invariant 7).
 """
 
 from __future__ import annotations
@@ -15,7 +29,10 @@ from datetime import datetime, timezone
 
 from shared.contracts.policy import PolicyOutcome, PolicyRule
 
-RULE_SET_VERSION = "1.0.0"
+# Bumped from "1.0.0" to "1.1.0" for the v1.3 contract amendment to Rule
+# P-004 (see the module docstring). P-001/P-002/P-003/P-005 are textually
+# unchanged but share this rule-set version field.
+RULE_SET_VERSION = "1.1.0"
 
 # When this rule set went into effect -- Phase 4 build date.
 RULES_EFFECTIVE_FROM = datetime(2026, 9, 15, 0, 0, 0, tzinfo=timezone.utc)
@@ -60,7 +77,7 @@ P_004_LOW_RISK_AUTO_RESOLVE = PolicyRule(
     priority=40,
     condition=(
         "risk_score <= LOW AND evidence.completeness = COMPLETE "
-        "AND (anomaly_tags ∩ HARD_RISK_TAGS) = ∅ AND findings.risk_assessment != HIGH"
+        "AND anomaly_tags = [] AND findings.risk_assessment != HIGH"
     ),
     outcome=PolicyOutcome.AUTO_RESOLVE,
     effective_from=RULES_EFFECTIVE_FROM,

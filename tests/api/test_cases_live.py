@@ -236,3 +236,59 @@ def test_live_escalation_then_senior_sees_it_and_finalizes(analyst_token: str, s
         assert finalized["final_disposition"] == "CLEAR"
     finally:
         _cleanup(store, case_id, transaction_id)
+
+
+def test_live_original_analyst_gets_identical_404_after_losing_the_case_to_escalation(
+    analyst_token: str, senior_token: str
+) -> None:
+    """Phase F: once ownership moves to the senior, the original analyst's
+    GET /cases/{case_id} must look exactly like "this case does not exist"
+    (404, generic message) -- never a 403 that would leak "the case exists,
+    you're just not allowed to see it."""
+    suffix = uuid.uuid4().hex[:8]
+    case_id, transaction_id = f"case_live_404_{suffix}", f"tx_live_404_{suffix}"
+    store = CaseStore(build_firestore_client())
+    client = TestClient(app)
+
+    try:
+        _seed_human_review_case(store, case_id, transaction_id, ANALYST_1_UID)
+
+        escalate_response = client.post(
+            f"/cases/{case_id}/decision",
+            headers=_auth_headers(analyst_token),
+            json={
+                "case_id": case_id,
+                "analyst_id": ANALYST_1_UID,
+                "action": "ESCALATE_SENIOR",
+                "reason": "Needs a second opinion",
+                "evidence_acknowledged": True,
+                "client_timestamp": NOW.isoformat(),
+                "target_analyst_id": SENIOR_1_UID,
+            },
+        )
+        assert escalate_response.status_code == 200
+        assert escalate_response.json()["target_analyst_display_name"]
+
+        # The original analyst has lost ownership -- GET must now 404, with
+        # the exact same message template as a genuinely nonexistent case.
+        after_escalation = client.get(f"/cases/{case_id}", headers=_auth_headers(analyst_token))
+        assert after_escalation.status_code == 404
+        assert after_escalation.json()["detail"] == f"Case '{case_id}' not found"
+
+        nonexistent = client.get("/cases/case_does_not_exist_at_all", headers=_auth_headers(analyst_token))
+        assert nonexistent.status_code == 404
+        assert nonexistent.json()["detail"] == "Case 'case_does_not_exist_at_all' not found"
+
+        # The senior, who now owns it, still gets a normal 200.
+        senior_view = client.get(f"/cases/{case_id}", headers=_auth_headers(senior_token))
+        assert senior_view.status_code == 200
+    finally:
+        _cleanup(store, case_id, transaction_id)
+
+
+def test_live_analyst_identity_headers_reflect_the_real_authenticated_caller(analyst_token: str) -> None:
+    client = TestClient(app)
+    list_response = client.get("/cases", headers=_auth_headers(analyst_token))
+    assert list_response.status_code == 200
+    assert list_response.headers["X-Analyst-Role"] == "ANALYST"
+    assert list_response.headers["X-Analyst-Display-Name"]

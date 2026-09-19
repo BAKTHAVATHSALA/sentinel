@@ -262,19 +262,69 @@ def test_get_case_returns_full_document_when_assigned_to_caller(client: TestClie
     assert body["available_seniors"][0]["email"] == "senior@sentinel.demo"
 
 
-def test_get_case_403_when_not_assigned_to_caller(client: TestClient, fake_store: FakeCaseStore, fake_directory) -> None:
+def test_get_case_404_when_not_assigned_to_caller(client: TestClient, fake_store: FakeCaseStore, fake_directory) -> None:
+    """Q11 consistency fix: a case that exists but isn't yours returns the
+    same 404 as a case that doesn't exist at all -- never 403 -- so neither
+    the frontend nor an external observer can tell the two apart."""
     fake_store.seed("case_api_test", _human_review_case(assigned_analyst_id=OTHER_ANALYST_UID))
     _as(ANALYST_UID)
 
     response = client.get("/cases/case_api_test")
 
-    assert response.status_code == 403
+    assert response.status_code == 404
 
 
 def test_get_case_404_when_missing(client: TestClient, fake_store: FakeCaseStore, fake_directory) -> None:
     _as(ANALYST_UID)
     response = client.get("/cases/does_not_exist")
     assert response.status_code == 404
+
+
+def test_get_case_not_found_and_not_assigned_use_the_identical_message_template(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    """The actual proof, not just matching status codes: both failure modes
+    use the identical "Case '<id>' not found" template -- the case_id each
+    response echoes back is not new information (the caller already put it
+    in the URL), but neither response may say anything that distinguishes
+    "doesn't exist" from "exists but isn't yours" (e.g. no "assigned"/"403"
+    wording anywhere)."""
+    fake_store.seed("case_api_test", _human_review_case(assigned_analyst_id=OTHER_ANALYST_UID))
+    _as(ANALYST_UID)
+
+    not_assigned_response = client.get("/cases/case_api_test")
+    not_found_response = client.get("/cases/does_not_exist")
+
+    assert not_assigned_response.status_code == not_found_response.status_code == 404
+    assert not_assigned_response.json()["detail"] == "Case 'case_api_test' not found"
+    assert not_found_response.json()["detail"] == "Case 'does_not_exist' not found"
+    assert "assigned" not in not_assigned_response.json()["detail"].lower()
+
+
+def test_get_case_response_includes_analyst_identity_headers(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    """Additive response headers (not a new endpoint, not a body-shape
+    change) so the frontend's persistent nav bar can show the caller's own
+    display name/role without a dedicated "who am I" endpoint."""
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+
+    response = client.get("/cases/case_api_test")
+
+    assert response.headers["X-Analyst-Display-Name"] == ANALYST_UID  # _as() sets display_name=uid
+    assert response.headers["X-Analyst-Role"] == "ANALYST"
+
+
+def test_list_cases_response_includes_analyst_identity_headers(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    _as(SENIOR_UID, role=AnalystRole.SENIOR_ANALYST)
+
+    response = client.get("/cases")
+
+    assert response.headers["X-Analyst-Display-Name"] == SENIOR_UID
+    assert response.headers["X-Analyst-Role"] == "SENIOR_ANALYST"
 
 
 # --- human decisions ---
@@ -303,6 +353,7 @@ def test_decision_clear_succeeds_and_finalizes(client: TestClient, fake_store: F
     assert body["state"] == "FINALIZED"
     assert body["final_disposition"] == "CLEAR"
     assert body["idempotent_replay"] is False
+    assert body["target_analyst_display_name"] is None  # only ever set for ESCALATE_SENIOR
     assert fake_store.cases["case_api_test"]["state"] == "FINALIZED"
     assert fake_store.audit_events["case_api_test"][-1]["actor_type"] == "HUMAN"
     assert fake_store.audit_events["case_api_test"][-1]["actor_id"] == ANALYST_UID
@@ -440,6 +491,10 @@ def test_analyst_can_escalate_to_valid_senior(client: TestClient, fake_store: Fa
     body = response.json()
     assert body["state"] == "HUMAN_REVIEW"  # Addendum 1 Point 1: not finalized
     assert body["assigned_analyst_id"] == SENIOR_UID
+    # Q11 verification fix: the response carries the senior's real display
+    # name, sourced from the already-validated directory record -- the
+    # frontend's escalation confirmation never needs to call GET /cases/{id}.
+    assert body["target_analyst_display_name"] == "Test Senior"
     assert fake_store.cases["case_api_test"]["state"] == CaseState.HUMAN_REVIEW.value
 
 

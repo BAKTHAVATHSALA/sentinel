@@ -61,6 +61,20 @@ body {
   }
 }
 
+/* Investigation journey (Transaction Console): a restrained pulse on the
+   node currently in progress -- the only signal that real work is
+   happening, never a fake per-stage countdown (build.md Section 14). */
+@keyframes journey-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.journey-node-active {
+  animation: journey-pulse 1.6s ease-in-out infinite;
+}
+.journey-connector-fill {
+  transition: width 400ms ease-out;
+}
+
 /* Reduced motion: the citation thread and counterfactual reveal become
    instant, no animated draw. */
 @media (prefers-reduced-motion: reduce) {

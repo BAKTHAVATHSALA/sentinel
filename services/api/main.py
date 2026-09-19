@@ -42,7 +42,18 @@ app = FastAPI(title="Sentinel V1", description="Fraud investigation pipeline -- 
 # this middleware exists only for `npm run dev`.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    # 5173 is Vite's documented default (README "Frontend setup"); 5180 is
+    # this machine's actual local dev port because 5173/5174 were already
+    # bound by another process when this session started `npm run dev`.
+    # Same pattern as the existing two entries -- no wildcard, no new
+    # configurability introduced (no CORS-origin env var exists in
+    # .env.example to reuse).
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5180",
+        "http://127.0.0.1:5180",
+    ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

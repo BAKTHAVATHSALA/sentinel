@@ -1,5 +1,13 @@
 import { firebaseAuth } from "./firebase";
-import type { CaseDocument, DecisionResponse, HumanDecisionRequest, QueueCaseSummary } from "./types";
+import { setAnalystIdentity, type AnalystIdentity } from "./analystIdentity";
+import type {
+  CaseDocument,
+  DecisionResponse,
+  HumanDecisionRequest,
+  QueueCaseSummary,
+  Transaction,
+  TransactionInvestigationResult,
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -14,8 +22,22 @@ export class ApiError extends Error {
 const STATUS_MESSAGES: Record<number, string> = {
   401: "Your session has expired. Please sign in again.",
   403: "You do not have access to this case.",
+  404: "This case is not available.",
   409: "This case was already decided or reassigned by someone else.",
 };
+
+/** GET /cases and GET /cases/{case_id} additively return the caller's own
+ * server-resolved identity as response headers (never a new endpoint, never
+ * client-supplied) -- capture it here so the persistent nav bar can render
+ * it without every page having to know or care which call happened to
+ * carry it. */
+function captureAnalystIdentity(headers: Headers): void {
+  const displayName = headers.get("X-Analyst-Display-Name");
+  const role = headers.get("X-Analyst-Role");
+  if (displayName && (role === "ANALYST" || role === "SENIOR_ANALYST")) {
+    setAnalystIdentity({ displayName, role } satisfies AnalystIdentity);
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const idToken = await firebaseAuth.currentUser?.getIdToken();
@@ -29,8 +51,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new ApiError(response.status, STATUS_MESSAGES[response.status] ?? body.detail ?? `Request to ${path} failed`);
+    throw new ApiError(
+      response.status,
+      STATUS_MESSAGES[response.status] ?? body.detail ?? body.message ?? `Request to ${path} failed`,
+    );
   }
+  captureAnalystIdentity(response.headers);
   return response.json() as Promise<T>;
 }
 
@@ -51,6 +77,20 @@ export function fetchCase(caseId: string, simulateWithoutFactId?: string): Promi
 /** POST /cases/{case_id}/decision -- record a human analyst decision. */
 export function submitDecision(caseId: string, body: HumanDecisionRequest): Promise<DecisionResponse> {
   return request<DecisionResponse>(`/cases/${encodeURIComponent(caseId)}/decision`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+/** POST /transactions -- the Transaction Console's only backend call
+ * (Detection through Policy, then Firestore write and, when escalated, real
+ * round-robin assignment). Deliberately unauthenticated server-side
+ * (services/api/main.py) and independent of the signed-in analyst session:
+ * the console never follows this with GET /cases/{case_id} and never checks
+ * whether the current session owns the resulting case -- that is the
+ * separate, authenticated Analyst Portal's job. */
+export function postTransaction(body: Transaction): Promise<TransactionInvestigationResult> {
+  return request<TransactionInvestigationResult>("/transactions", {
     method: "POST",
     body: JSON.stringify(body),
   });
