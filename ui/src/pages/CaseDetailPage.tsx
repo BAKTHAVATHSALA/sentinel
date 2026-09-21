@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchCase, ApiError } from "../lib/api";
 import { AnalystNavBar } from "../components/AnalystNavBar";
-import { CaseSpine } from "../components/CaseSpine";
+import { CaseHeader } from "../components/CaseHeader";
+import { InvestigationSummary } from "../components/InvestigationSummary";
 import { PipelineStrip } from "../components/PipelineStrip";
 import { ExhibitCard } from "../components/ExhibitCard";
 import { FindingsPanel } from "../components/FindingsPanel";
@@ -22,6 +23,32 @@ import {
 } from "../components/StateNotices";
 import type { CaseDocument, DecisionResponse } from "../lib/types";
 
+/**
+ * Progressive-disclosure case page (UX polish pass). Page order, top to
+ * bottom: Case Header -> Investigation Pipeline -> Investigation Summary ->
+ * Evidence -> Gemini Assessment -> Robustness -> Policy -> Human Decision.
+ * The pipeline comes immediately after the header because it represents the
+ * case's lifecycle (CASE -> WHERE IS IT? -> WHAT DID IT FIND? -> EVIDENCE ->
+ * WHAT ACTION CAN I TAKE?) -- an analyst should see where the case stands
+ * before reading what was found. Uses the full available desktop width
+ * (only comfortable side padding, no max-width cap) so evidence cards and
+ * the pipeline strip both get real room. No data, endpoint, or decision
+ * logic changed, only how the same real fields are arranged and worded.
+ *
+ * Layout note (content-driven height, single scroll owner): the main
+ * content branch below deliberately does NOT use `h-screen` +
+ * `flex-1 overflow-y-auto` the way the loading/error/confirmation branches
+ * still do. That combination forces the content region to be exactly one
+ * viewport tall regardless of actual content -- once evidence/Gemini/
+ * robustness/policy are collapsed by default (progressive disclosure), real
+ * content is often *shorter* than the viewport, leaving a large forced-empty
+ * region below Human Decision, and the fixed-height nested scroll box can
+ * also produce a second, browser-level scrollbar alongside its own. The
+ * page now flows naturally (its own height, whatever that is) and scrolls
+ * at the document level -- one scroll owner, no artificial floor or cap.
+ * The nav bar is pinned with `sticky` (not the old `h-screen` trick) so it
+ * still stays visible while the page scrolls.
+ */
 export function CaseDetailPage() {
   const { caseId } = useParams<{ caseId: string }>();
   const [caseDoc, setCaseDoc] = useState<CaseDocument | null>(null);
@@ -103,77 +130,84 @@ export function CaseDetailPage() {
   const investigated = caseDoc.evidence_bundle !== null;
 
   return (
-    <div className="flex h-screen flex-col">
-      <AnalystNavBar />
-
-      <div className="px-4 pt-4">
-        <PipelineStrip caseDoc={caseDoc} />
+    <div className="flex flex-col">
+      <div className="sticky top-0 z-10">
+        <AnalystNavBar />
       </div>
 
-      <CitationThreadProvider>
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="overflow-y-auto">
-            <CaseSpine caseDoc={caseDoc} />
-          </div>
+      <div className="w-full px-6 py-4">
+        <CitationThreadProvider>
+          <div className="flex flex-col gap-4 pb-10">
+            <CaseHeader caseDoc={caseDoc} />
 
-          <div className="min-w-[560px] flex-1 overflow-y-auto">
-            {!investigated ? (
-              <EmptyInvestigationNotice state={caseDoc.state} />
-            ) : (
+            <PipelineStrip caseDoc={caseDoc} />
+
+            {investigated && caseDoc.findings && <InvestigationSummary findings={caseDoc.findings} />}
+            {!investigated && <EmptyInvestigationNotice state={caseDoc.state} />}
+
+            {investigated && (
               <>
                 {caseDoc.evidence_bundle!.completeness === "PARTIAL" && (
-                  <div className="p-4">
-                    <PartialEvidenceBanner missing={caseDoc.evidence_bundle!.missing_required_evidence} />
-                  </div>
+                  <PartialEvidenceBanner missing={caseDoc.evidence_bundle!.missing_required_evidence} />
                 )}
 
-                <div className="flex flex-col gap-3 p-4">
-                  <h2 className="text-[13px] text-[var(--color-text-muted)]">Evidence</h2>
-                  {caseDoc.evidence_bundle!.facts.map((fact, i) => (
-                    <ExhibitCard
-                      key={fact.fact_id}
-                      fact={fact}
-                      index={i}
-                      excluded={fact.fact_id === caseDoc.counterfactual?.removed_fact_id}
-                    />
-                  ))}
-                </div>
+                <section className="border border-[var(--color-rule)] bg-[var(--color-surface)] p-4">
+                  <h2 className="mb-3 text-[13px] text-[var(--color-text-muted)]">Evidence</h2>
+                  <div className="flex flex-col gap-3">
+                    {caseDoc.evidence_bundle!.facts.map((fact, i) => (
+                      <ExhibitCard
+                        key={fact.fact_id}
+                        fact={fact}
+                        index={i}
+                        excluded={fact.fact_id === caseDoc.counterfactual?.removed_fact_id}
+                      />
+                    ))}
+                  </div>
+                </section>
 
                 {caseDoc.findings ? (
                   <FindingsPanel findings={caseDoc.findings} exhibitNumbers={exhibitNumbers} />
                 ) : (
-                  <div className="p-4">
-                    <ReasoningFailedNotice />
-                  </div>
+                  <ReasoningFailedNotice />
                 )}
+
+                <div className="border border-[var(--color-rule)] bg-[var(--color-surface)]">
+                  <CounterfactualPanel
+                    robustness={caseDoc.robustness}
+                    findings={caseDoc.findings}
+                    exhibitNumbers={exhibitNumbers}
+                    facts={caseDoc.evidence_bundle?.facts ?? []}
+                    counterfactual={caseDoc.counterfactual}
+                    counterfactualLoading={counterfactualLoading}
+                    counterfactualError={counterfactualError}
+                    onRequestCounterfactual={requestCounterfactual}
+                  />
+                </div>
               </>
             )}
-          </div>
 
-          <div className="w-[340px] min-w-[300px] max-w-[380px] overflow-y-auto border-l border-[var(--color-rule)]">
-            {investigated && (
-              <CounterfactualPanel
-                robustness={caseDoc.robustness}
-                findings={caseDoc.findings}
-                exhibitNumbers={exhibitNumbers}
-                facts={caseDoc.evidence_bundle?.facts ?? []}
-                counterfactual={caseDoc.counterfactual}
-                counterfactualLoading={counterfactualLoading}
-                counterfactualError={counterfactualError}
-                onRequestCounterfactual={requestCounterfactual}
-              />
-            )}
-            {caseDoc.policy_decision && <PolicyLedgerEntry decision={caseDoc.policy_decision} />}
-            {caseDoc.state === "HUMAN_REVIEW" && <HumanDecisionPanel caseDoc={caseDoc} onDecided={setDecisionResult} />}
-            {caseDoc.state === "FINALIZED" && <DecisionRecord caseDoc={caseDoc} />}
-            {caseDoc.state === "AUTO_RESOLVED" && (
-              <div className="p-4 text-[13px] text-[var(--color-text-muted)]">
-                No human action required &mdash; resolved automatically.
+            {caseDoc.policy_decision && (
+              <div className="border border-[var(--color-rule)] bg-[var(--color-surface)]">
+                <PolicyLedgerEntry decision={caseDoc.policy_decision} />
               </div>
             )}
+
+            {/* Human Decision: deliberately the most visually distinct section on the
+                page -- a raised surface + accent top border -- so the analyst's own
+                action area is never confused with the read-only investigation record
+                above it. No permission/disabled-state logic changes here at all. */}
+            <div className="border-t-2 border-[var(--color-caution)] bg-[var(--color-surface-raised)]">
+              {caseDoc.state === "HUMAN_REVIEW" && <HumanDecisionPanel caseDoc={caseDoc} onDecided={setDecisionResult} />}
+              {caseDoc.state === "FINALIZED" && <DecisionRecord caseDoc={caseDoc} />}
+              {caseDoc.state === "AUTO_RESOLVED" && (
+                <div className="p-4 text-[13px] text-[var(--color-text-muted)]">
+                  No human action required &mdash; resolved automatically.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </CitationThreadProvider>
+        </CitationThreadProvider>
+      </div>
     </div>
   );
 }

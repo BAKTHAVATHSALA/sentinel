@@ -41,11 +41,20 @@ export function DecisionConfirmationScreen({ decision }: { decision: DecisionRes
     );
   }
 
-  const title = decision.final_disposition === "CLEAR" ? "Case Cleared" : "Transaction Blocked / Held";
+  const isBlockHold = decision.final_disposition === "BLOCK_HOLD";
+  const title = isBlockHold ? "Transaction Blocked / Held" : "Case Cleared";
+  // BLOCK_HOLD is the one genuinely severe human action (Safety Invariant 4)
+  // -- red here, consistent with every other place it's shown (the decision
+  // button itself, the dashboard metric card, the case header). CLEAR is a
+  // successful, informational outcome, same teal as elsewhere.
+  const accentColor = isBlockHold ? "var(--color-critical)" : "var(--color-stable)";
+  const accentSoft = isBlockHold ? "var(--color-critical-soft)" : "var(--color-stable-soft)";
   return (
     <div className="mx-auto max-w-[560px] p-6">
-      <div className="border border-[var(--color-stable)] bg-[var(--color-stable-soft)] p-5">
-        <p className="text-[16px] text-[var(--color-stable)]">{title}</p>
+      <div className="border p-5" style={{ borderColor: accentColor, backgroundColor: accentSoft }}>
+        <p className="text-[16px]" style={{ color: accentColor }}>
+          {title}
+        </p>
         <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">
           Case: <span className="font-mono text-[var(--color-text)]">{decision.case_id}</span>
         </p>

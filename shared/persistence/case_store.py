@@ -122,6 +122,27 @@ class CaseStore:
         )
         return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
 
+    def list_cases_by_escalated_by(self, escalated_by_analyst_id: str) -> list[dict[str, object]]:
+        """List every case document this analyst has ever escalated via
+        ESCALATE_SENIOR, regardless of its current state or current
+        assigned_analyst_id (dashboard "Escalated to Senior" metric).
+
+        A single-field equality filter on `escalated_by_analyst_id`, auto-
+        indexed like the other single-field queries in this store. Cases
+        written before this field existed simply never match (Firestore
+        equality filters do not match a missing field), so pre-existing
+        cases require no backfill and are unaffected.
+
+        :param escalated_by_analyst_id: Firebase UID of the analyst who
+            performed the escalation (never client-supplied -- always the
+            authenticated caller's own UID from services/api/cases.py).
+        :return: Case documents this analyst escalated, in any state.
+        """
+        query = self._client.collection(self._cases_collection).where(
+            filter=FieldFilter("escalated_by_analyst_id", "==", escalated_by_analyst_id)
+        )
+        return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
+
     def apply_human_decision(
         self,
         case_id: str,

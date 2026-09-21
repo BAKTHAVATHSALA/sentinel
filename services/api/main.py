@@ -56,6 +56,16 @@ app.add_middleware(
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
+    # Without this, the browser's fetch() cannot read X-Analyst-Display-Name/
+    # X-Analyst-Role at all in cross-origin local dev (5180 -> 8010): the
+    # Fetch spec only exposes a small safelisted set of response headers to
+    # script unless the server explicitly lists more here. The headers were
+    # always present in the raw HTTP response (visible to curl and to same-
+    # origin production, neither of which enforce this), which is why this
+    # gap went undetected until real cross-origin browser testing surfaced
+    # it -- see services/api/cases.py's list_cases/get_case docstrings for
+    # what these two headers carry.
+    expose_headers=["X-Analyst-Display-Name", "X-Analyst-Role"],
 )
 
 app.include_router(cases_router)

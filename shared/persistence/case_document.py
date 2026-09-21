@@ -43,6 +43,7 @@ def build_case_document(
     policy_decision: PolicyDecision | None = None,
     assigned_analyst_id: str | None = None,
     final_disposition: HumanAction | None = None,
+    escalated_by_analyst_id: str | None = None,
 ) -> dict[str, object]:
     """Build the JSON-safe Firestore document for one case.
 
@@ -59,6 +60,14 @@ def build_case_document(
     :param policy_decision: PolicyDecision, once Policy has evaluated the case.
     :param assigned_analyst_id: Analyst currently assigned, if any.
     :param final_disposition: Human analyst's final action, if any (Phase 5).
+    :param escalated_by_analyst_id: Historical attribution only -- the analyst
+        who performed ESCALATE_SENIOR on this case, if any. Never set at
+        creation (a case is never created pre-escalated); set later, once,
+        by services/api/cases.py's ESCALATE_SENIOR decision path. Distinct
+        from `assigned_analyst_id`, which is overwritten to the selected
+        senior's UID at that same moment -- this field is never overwritten
+        again and exists purely so dashboard metrics can count "cases this
+        analyst escalated" after the case is no longer assigned to them.
     :return: A plain dict safe to pass directly to a Firestore document write.
     """
     return {
@@ -75,4 +84,5 @@ def build_case_document(
         "policy_decision": policy_decision.model_dump(mode="json") if policy_decision else None,
         "assigned_analyst_id": assigned_analyst_id,
         "final_disposition": final_disposition.value if final_disposition else None,
+        "escalated_by_analyst_id": escalated_by_analyst_id,
     }

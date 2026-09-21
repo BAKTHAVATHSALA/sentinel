@@ -44,6 +44,9 @@ class FakeCaseStore:
     def list_cases_by_state_and_assigned_analyst(self, state: str, assigned_analyst_id: str) -> list[dict[str, object]]:
         return [c for c in self.cases.values() if c["state"] == state and c.get("assigned_analyst_id") == assigned_analyst_id]
 
+    def list_cases_by_escalated_by(self, escalated_by_analyst_id: str) -> list[dict[str, object]]:
+        return [c for c in self.cases.values() if c.get("escalated_by_analyst_id") == escalated_by_analyst_id]
+
     def get_case(self, case_id: str):
         return self.cases.get(case_id)
 
@@ -496,6 +499,190 @@ def test_analyst_can_escalate_to_valid_senior(client: TestClient, fake_store: Fa
     # frontend's escalation confirmation never needs to call GET /cases/{id}.
     assert body["target_analyst_display_name"] == "Test Senior"
     assert fake_store.cases["case_api_test"]["state"] == CaseState.HUMAN_REVIEW.value
+    # Dashboard-metrics attribution field: set to the escalating analyst's own
+    # UID, alongside (never instead of) assigned_analyst_id moving to the
+    # selected senior exactly as before.
+    assert fake_store.cases["case_api_test"]["escalated_by_analyst_id"] == ANALYST_UID
+    assert fake_store.cases["case_api_test"]["assigned_analyst_id"] == SENIOR_UID
+
+
+def test_escalation_rejects_any_client_supplied_escalated_by_analyst_id(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    """escalated_by_analyst_id must be derived exclusively from the verified
+    caller identity. HumanDecisionRequest (the frozen decision contract) has
+    no such field and forbids unknown fields outright, so an attempt to
+    smuggle it in the request body is rejected at validation -- the strongest
+    possible guarantee that it can never be client-supplied or client-spoofed."""
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+
+    payload = _decision_payload("ESCALATE_SENIOR", "needs senior judgment", target_analyst_id=SENIOR_UID)
+    payload["escalated_by_analyst_id"] = OTHER_ANALYST_UID  # not a real request field
+
+    response = client.post("/cases/case_api_test/decision", json=payload)
+
+    assert response.status_code == 422
+    assert fake_store.cases["case_api_test"].get("escalated_by_analyst_id") is None  # the smuggled request never applied
+
+
+def test_original_analyst_loses_normal_case_access_after_escalation(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    """Existing ownership rule, unchanged by the new attribution field: once
+    escalated_by_analyst_id is set, the original analyst's normal case access
+    (GET /cases/{case_id}) is governed exclusively by assigned_analyst_id, as
+    before -- the historical attribution field grants no continued access."""
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+    client.post(
+        "/cases/case_api_test/decision",
+        json=_decision_payload("ESCALATE_SENIOR", "needs senior judgment", target_analyst_id=SENIOR_UID),
+    )
+
+    _as(ANALYST_UID)
+    response = client.get("/cases/case_api_test")
+
+    assert response.status_code == 404
+
+
+# --- dashboard metrics (GET /cases?scope=dashboard) ---
+
+
+def test_dashboard_scope_omitted_is_byte_identical_to_default_queue(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+
+    default_response = client.get("/cases").json()
+    explicit_non_dashboard = client.get("/cases?scope=something_else").json()
+
+    assert default_response == explicit_non_dashboard
+    assert len(default_response) == 1
+    assert "is_escalated_by_me" not in default_response[0] or default_response[0]["is_escalated_by_me"] is False
+
+
+def test_dashboard_scope_counts_escalated_case_under_escalated_by_me(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+    client.post(
+        "/cases/case_api_test/decision",
+        json=_decision_payload("ESCALATE_SENIOR", "needs senior judgment", target_analyst_id=SENIOR_UID),
+    )
+
+    _as(ANALYST_UID)
+    response = client.get("/cases?scope=dashboard")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]["case_id"] == "case_api_test"
+    assert rows[0]["is_escalated_by_me"] is True
+    assert rows[0]["state"] == "HUMAN_REVIEW"  # still open under the senior -- not finalized
+
+
+def test_dashboard_scope_case_assigned_to_senior_without_escalation_field_is_not_counted(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    """A case can be assigned_analyst_id == a senior for reasons unrelated to
+    this analyst's own ESCALATE_SENIOR action (e.g. a differently-seeded
+    fixture) -- must never be inferred as an escalation the analyst
+    performed. Only the explicit persisted escalated_by_analyst_id counts."""
+    doc = _human_review_case(assigned_analyst_id=SENIOR_UID)
+    assert doc.get("escalated_by_analyst_id") is None
+    fake_store.seed("case_assigned_to_senior_directly", doc)
+    _as(ANALYST_UID)
+
+    response = client.get("/cases?scope=dashboard")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_analyst_a_cannot_see_analyst_b_escalations_in_dashboard_scope(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    fake_directory._records[OTHER_ANALYST_UID] = AnalystRecord(
+        uid=OTHER_ANALYST_UID, email="b@sentinel.demo", display_name="B", role=AnalystRole.ANALYST, active=True
+    )
+    fake_store.seed("case_b_escalates", _human_review_case(case_id="case_b_escalates", assigned_analyst_id=OTHER_ANALYST_UID))
+    _as(OTHER_ANALYST_UID)
+    client.post(
+        "/cases/case_b_escalates/decision",
+        json=_decision_payload(
+            "ESCALATE_SENIOR", "needs senior judgment", analyst_id=OTHER_ANALYST_UID, target_analyst_id=SENIOR_UID
+        ),
+    )
+
+    _as(ANALYST_UID)
+    response = client.get("/cases?scope=dashboard")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_dashboard_scope_non_escalated_own_cases_have_is_escalated_by_me_false(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+
+    response = client.get("/cases?scope=dashboard")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]["is_escalated_by_me"] is False
+
+
+def test_dashboard_scope_includes_own_finalized_cases_with_final_disposition(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    fake_store.seed("case_api_test", _human_review_case())
+    _as(ANALYST_UID)
+    client.post(
+        "/cases/case_api_test/decision",
+        json=_decision_payload("BLOCK_HOLD", "confirmed fraud"),
+    )
+
+    response = client.get("/cases?scope=dashboard")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]["state"] == "FINALIZED"
+    assert rows[0]["final_disposition"] == "BLOCK_HOLD"
+    assert rows[0]["is_escalated_by_me"] is False
+
+
+def test_dashboard_scope_returns_empty_for_analyst_with_zero_cases(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    _as(ANALYST_UID)
+    response = client.get("/cases?scope=dashboard")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_dashboard_scope_handles_a_case_document_predating_the_escalated_by_field(
+    client: TestClient, fake_store: FakeCaseStore, fake_directory
+) -> None:
+    """Existing case documents written before escalated_by_analyst_id existed
+    must remain readable: the key is entirely absent, not merely null."""
+    doc = _human_review_case()
+    del doc["escalated_by_analyst_id"]
+    fake_store.seed("case_api_test", doc)
+    _as(ANALYST_UID)
+
+    response = client.get("/cases?scope=dashboard")
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert len(rows) == 1
+    assert rows[0]["is_escalated_by_me"] is False
 
 
 def test_escalation_requires_reason(client: TestClient, fake_store: FakeCaseStore, fake_directory) -> None:

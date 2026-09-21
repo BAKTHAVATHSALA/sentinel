@@ -66,8 +66,10 @@ export function InvestigationConsolePage() {
           <p className="text-[12px] tracking-wide text-[var(--color-text-faint)]">SENTINEL</p>
           <h1 className="mt-1 text-[22px] text-[var(--color-text)]">Transaction Investigation Console</h1>
           <p className="mt-2 max-w-[520px] text-[13px] text-[var(--color-text-muted)]">
-            Upload transaction records and Sentinel will investigate them with evidence-driven AI and deterministic
-            policy controls.
+            Upload a transaction and let Sentinel investigate the evidence behind suspicious activity.
+          </p>
+          <p className="mt-1 max-w-[520px] text-[12px] text-[var(--color-text-faint)]">
+            AI investigates and explains. Deterministic policy controls automated disposition.
           </p>
           <p className="mt-1 max-w-[520px] text-[11px] text-[var(--color-text-faint)]">
             Prototype environment uses synthetic investigation context.

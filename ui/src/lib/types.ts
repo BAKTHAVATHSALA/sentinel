@@ -197,7 +197,13 @@ export interface CaseDocument {
   counterfactual?: CounterfactualResult;
 }
 
-/** GET /cases -- one row of the queue view. */
+/** GET /cases -- one row of the queue view. `final_disposition` and
+ * `is_escalated_by_me` are additive fields, present on every row regardless
+ * of `?scope` (defaulted on the plain queue view, where they are always
+ * null/false since that view only ever returns open, non-escalated cases).
+ * `is_escalated_by_me` is a backend-computed boolean, never a raw analyst
+ * UID -- it says only "you escalated this case", nothing about who holds it
+ * now (see services/api/cases.py:list_cases). */
 export interface QueueCaseSummary {
   case_id: string;
   transaction_id: string;
@@ -211,6 +217,8 @@ export interface QueueCaseSummary {
   anomaly_tags: AnomalyTag[];
   robustness_classification: RobustnessClassification | null;
   robustness_fragile_factor_id: string | null;
+  final_disposition: HumanAction | null;
+  is_escalated_by_me: boolean;
 }
 
 /** POST /cases/{case_id}/decision request body. `target_analyst_id` is used

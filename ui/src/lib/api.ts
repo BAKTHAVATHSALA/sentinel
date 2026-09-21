@@ -66,6 +66,17 @@ export function fetchQueue(): Promise<QueueCaseSummary[]> {
   return request<QueueCaseSummary[]>("/cases");
 }
 
+/** GET /cases?scope=dashboard -- the same endpoint, additively broadened for
+ * the dashboard metric cards: this analyst's own open + closed cases, plus
+ * cases they escalated (`is_escalated_by_me`), still scoped entirely to the
+ * authenticated caller. The queue page uses this as its single data source
+ * and derives both the visible queue table and the metric counts from it,
+ * rather than issuing a second fetch (`fetchQueue` above remains for any
+ * caller that only wants the plain open-queue view). */
+export function fetchDashboardCases(): Promise<QueueCaseSummary[]> {
+  return request<QueueCaseSummary[]>("/cases?scope=dashboard");
+}
+
 /** GET /cases/{case_id} -- full case detail (Build Checklist Phase 5.1/5.3).
  * `simulateWithoutFactId` additively requests a fresh, non-persisted
  * counterfactual re-evaluation (mega-prompt Section 9/10). */

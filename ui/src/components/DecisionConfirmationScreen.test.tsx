@@ -69,6 +69,22 @@ describe("DecisionConfirmationScreen", () => {
     expect(screen.queryByRole("button", { name: /clear|block|escalate/i })).not.toBeInTheDocument();
   });
 
+  it("shows BLOCK_HOLD in red (critical), consistent with the decision button/dashboard/case header everywhere else -- never the same teal as CLEAR", () => {
+    mockAuth();
+    renderScreen(BLOCK_HOLD_DECISION);
+
+    const title = screen.getByText("Transaction Blocked / Held");
+    expect(title).toHaveStyle({ color: "var(--color-critical)" });
+  });
+
+  it("keeps CLEAR in teal/stable, distinct from BLOCK_HOLD's red", () => {
+    mockAuth();
+    renderScreen(CLEAR_DECISION);
+
+    const title = screen.getByText("Case Cleared");
+    expect(title).toHaveStyle({ color: "var(--color-stable)" });
+  });
+
   it("shows the Case Escalated Successfully confirmation with the real senior display name and HUMAN_REVIEW status", () => {
     mockAuth();
     renderScreen(ESCALATE_DECISION);

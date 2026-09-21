@@ -74,9 +74,11 @@ class QueueCaseSummary(BaseModel):
     anomaly_tags: list[str]
     robustness_classification: str | None
     robustness_fragile_factor_id: str | None
+    final_disposition: str | None = None
+    is_escalated_by_me: bool = False
 
 
-def _to_queue_summary(document: dict[str, object]) -> QueueCaseSummary:
+def _to_queue_summary(document: dict[str, object], *, is_escalated_by_me: bool = False) -> QueueCaseSummary:
     transaction = document.get("transaction") or {}
     detection = document.get("detection") or {}
     robustness = document.get("robustness") or {}
@@ -93,12 +95,15 @@ def _to_queue_summary(document: dict[str, object]) -> QueueCaseSummary:
         anomaly_tags=detection.get("anomaly_tags", []),
         robustness_classification=robustness.get("classification"),
         robustness_fragile_factor_id=robustness.get("fragile_factor_id"),
+        final_disposition=document.get("final_disposition"),
+        is_escalated_by_me=is_escalated_by_me,
     )
 
 
 @router.get("/cases")
 def list_cases(
     response: Response,
+    scope: str | None = Query(default=None),
     caller: AuthenticatedAnalyst = Depends(get_current_analyst),
     store: CaseStore = Depends(get_case_store),
 ) -> list[QueueCaseSummary]:
@@ -114,11 +119,36 @@ def list_cases(
     the already-server-resolved caller identity (never client-supplied) so
     the frontend's persistent nav bar can render it without a new endpoint or
     a breaking change to this endpoint's existing array response body.
+
+    `?scope=dashboard` additively broadens this same response for the
+    dashboard metric cards, without a new endpoint: omitting `scope` (every
+    existing caller) returns byte-identical output to before. With
+    `scope=dashboard`, the response is the union of three still-caller-scoped
+    queries -- this analyst's own HUMAN_REVIEW cases, this analyst's own
+    FINALIZED cases, and cases this analyst escalated via ESCALATE_SENIOR
+    (`escalated_by_analyst_id == caller.uid`, regardless of who holds it now)
+    -- each row's `is_escalated_by_me` says which bucket it came from, so the
+    frontend never has to compare raw UIDs (and this endpoint never returns
+    another analyst's escalation history: the escalated-by query is always
+    filtered to the caller's own UID, never a collection-group query).
     """
     response.headers["X-Analyst-Display-Name"] = caller.display_name
     response.headers["X-Analyst-Role"] = caller.role.value
-    documents = store.list_cases_by_state_and_assigned_analyst(CaseState.HUMAN_REVIEW.value, caller.uid)
-    return [_to_queue_summary(doc) for doc in documents]
+
+    if scope != "dashboard":
+        documents = store.list_cases_by_state_and_assigned_analyst(CaseState.HUMAN_REVIEW.value, caller.uid)
+        return [_to_queue_summary(doc) for doc in documents]
+
+    own_open = store.list_cases_by_state_and_assigned_analyst(CaseState.HUMAN_REVIEW.value, caller.uid)
+    own_closed = store.list_cases_by_state_and_assigned_analyst(CaseState.FINALIZED.value, caller.uid)
+    escalated_by_me = store.list_cases_by_escalated_by(caller.uid)
+
+    own_case_ids = {doc["case_id"] for doc in own_open} | {doc["case_id"] for doc in own_closed}
+    summaries = [_to_queue_summary(doc, is_escalated_by_me=False) for doc in (*own_open, *own_closed)]
+    summaries += [
+        _to_queue_summary(doc, is_escalated_by_me=True) for doc in escalated_by_me if doc["case_id"] not in own_case_ids
+    ]
+    return summaries
 
 
 class SeniorOption(BaseModel):
@@ -357,7 +387,19 @@ def post_decision(
     reason = (request.reason or "").strip()
 
     if request.action == HumanAction.ESCALATE_SENIOR:
-        updates: dict[str, object] = {"assigned_analyst_id": target_analyst_id, "updated_at": decided_at}
+        # `escalated_by_analyst_id` is historical attribution only (dashboard
+        # metrics), derived exclusively from the verified caller identity --
+        # never client-supplied, never read from the request body. It is set
+        # once, here, and never overwritten again (a SENIOR_ANALYST can never
+        # reach this branch -- see the role check above -- so a case can be
+        # escalated at most once). `assigned_analyst_id` still changes to the
+        # selected senior exactly as before; this field does not participate
+        # in any authorization or assignment decision.
+        updates: dict[str, object] = {
+            "assigned_analyst_id": target_analyst_id,
+            "escalated_by_analyst_id": caller.uid,
+            "updated_at": decided_at,
+        }
         event_type = "ESCALATED_TO_SENIOR"
     else:
         updates = {

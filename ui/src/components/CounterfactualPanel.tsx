@@ -154,11 +154,14 @@ function CounterfactualResultCard({
             label="Robustness"
             value={counterfactual.robustness.classification === "FRAGILE" ? "Fragile" : "Robust"}
           />
+          {/* Fragility, not failure: this reports a live counterfactual finding
+              (the same concept SupportPillars colors amber as "Fragile"), never
+              an actual error -- amber keeps that distinction consistent app-wide. */}
           <p
             className="text-[12px]"
             style={{
               color: counterfactual.policy_outcome_would_change
-                ? "var(--color-critical)"
+                ? "var(--color-caution)"
                 : "var(--color-text-muted)",
             }}
           >

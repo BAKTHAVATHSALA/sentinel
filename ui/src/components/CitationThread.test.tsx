@@ -21,7 +21,12 @@ describe("Citation thread (signature interaction)", () => {
     const exhibit = document.getElementById(`exhibit-${fact.fact_id}`)!;
     expect(exhibit.className).not.toContain("border-[var(--color-stable)]");
 
-    await user.tab(); // focuses the citation chip (only focusable element)
+    // ExhibitCard now also renders its own focusable "View evidence" toggle
+    // (progressive disclosure) before the citation chip in tab order, so
+    // this takes two tabs to reach the chip instead of one.
+    await user.tab(); // -> ExhibitCard's "View evidence" toggle
+    await user.tab(); // -> the citation chip
+    expect(screen.getByRole("button", { name: "Exhibit 02" })).toHaveFocus();
     expect(exhibit.className).toContain("border-[var(--color-stable)]");
 
     await user.tab(); // move focus away -> blur clears the thread

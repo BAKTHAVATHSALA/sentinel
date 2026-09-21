@@ -153,6 +153,8 @@ export const queueRows: QueueCaseSummary[] = [
     anomaly_tags: ["NEW_DEVICE"],
     robustness_classification: "FRAGILE",
     robustness_fragile_factor_id: "fact_02_linked_entities",
+    final_disposition: null,
+    is_escalated_by_me: false,
   },
   {
     case_id: "case_e41fc15a8461",
@@ -167,6 +169,8 @@ export const queueRows: QueueCaseSummary[] = [
     anomaly_tags: ["NEW_DEVICE", "UNUSUAL_LOCATION", "MERCHANT_RISK"],
     robustness_classification: "FRAGILE",
     robustness_fragile_factor_id: null,
+    final_disposition: null,
+    is_escalated_by_me: false,
   },
   {
     case_id: "case_24b32015ac18",
@@ -181,5 +185,7 @@ export const queueRows: QueueCaseSummary[] = [
     anomaly_tags: ["NEW_DEVICE"],
     robustness_classification: "ROBUST",
     robustness_fragile_factor_id: null,
+    final_disposition: null,
+    is_escalated_by_me: false,
   },
 ];
