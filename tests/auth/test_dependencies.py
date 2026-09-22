@@ -86,9 +86,12 @@ def test_valid_senior_analyst_resolves_with_senior_role(monkeypatch: pytest.Monk
     assert caller.role == AnalystRole.SENIOR_ANALYST
 
 
-def test_get_analyst_directory_dependency_builds_a_real_directory() -> None:
+def test_get_analyst_directory_dependency_builds_a_real_directory(monkeypatch: pytest.MonkeyPatch) -> None:
     """Smoke test only: confirms the default dependency factory wires up an
     AnalystDirectory without raising, and that endpoints override it in tests
     rather than depending on this real construction path."""
+    fake_firestore_client = object()
+    monkeypatch.setattr(dependencies, "build_firestore_client", lambda: fake_firestore_client)
+
     directory = get_analyst_directory()
     assert directory.__class__.__name__ == "AnalystDirectory"
