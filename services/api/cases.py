@@ -41,6 +41,10 @@ from shared.robustness.scorer import RobustnessScorer
 router = APIRouter()
 
 
+def _new_audit_event_id() -> str:
+    return f"aud_{uuid.uuid4().hex[:12]}"
+
+
 def get_case_store() -> CaseStore:
     """FastAPI dependency: the real Firestore-backed CaseStore.
 
@@ -411,7 +415,7 @@ def post_decision(
         event_type = "FINALIZED"
 
     audit_event = AuditEvent(
-        audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
+        audit_event_id=_new_audit_event_id(),
         case_id=case_id,
         transaction_id=document["transaction_id"],
         event_type=event_type,
@@ -443,7 +447,7 @@ def post_decision(
         store.append_audit_event(
             case_id,
             AuditEvent(
-                audit_event_id=f"aud_{uuid.uuid4().hex[:12]}",
+                audit_event_id=_new_audit_event_id(),
                 case_id=case_id,
                 transaction_id=document["transaction_id"],
                 event_type="DECISION_REJECTED_CONFLICT",

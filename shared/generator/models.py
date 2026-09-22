@@ -1,6 +1,6 @@
 """Domain models and metadata structures for the synthetic transaction generator."""
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 

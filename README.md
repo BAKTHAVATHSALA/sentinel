@@ -1,150 +1,216 @@
 # Sentinel
 
-## Real-Time AI Fraud Investigation & Case Intelligence
+Sentinel is an AI-assisted fraud investigation system for card-not-present e-commerce transactions.
 
-Sentinel is an AI-assisted fraud investigation system for outgoing card-not-present (CNP) e-commerce transactions at the pre-authorization stage. It combines deterministic anomaly detection, an agentic evidence-gathering workflow, Gemini-based structured reasoning, decision robustness analysis, and a deterministic policy service to investigate suspicious transactions, then hands escalated cases to a human analyst through a dedicated review UI.
+It goes beyond a risk score — Sentinel investigates a transaction, gathers relevant evidence, explains what it found, checks how robust the conclusion is, and routes the case through deterministic policy to either automatic resolution or human review.
 
-**Governing safety principle (frozen, never weakened):**
+## The problem
 
-> Probabilistic AI investigates and reasons. Deterministic policy controls automated disposition. Humans retain authority over blocking and overrides.
+A fraud detection model can identify a transaction as unusual, but a score alone does not tell an analyst:
 
-Gemini never approves, declines, blocks, releases, or finalizes a disposition. The deterministic Policy service can only ever emit `AUTO_RESOLVE` or `ESCALATE` -- it can never produce `BLOCK_HOLD`. Only a human analyst, through `POST /cases/{case_id}/decision`, can execute `BLOCK_HOLD`.
+- Why the transaction is unusual
+- What evidence supports or contradicts the signal
+- Whether the conclusion depends heavily on one piece of evidence
+- What should happen next
 
-## V1 Architecture
+Sentinel focuses on this investigation layer — turning a transaction alert into an evidence-backed, reviewable case.
+
+See [`docs/project.md`](docs/project.md) for the full problem statement and product direction.
+
+## What it does
+
+- **Detects** anomalies using a trained baseline risk model and transaction signals.
+- **Investigates** flagged transactions by dynamically selecting relevant evidence sources.
+- **Explains** findings with Gemini-based structured reasoning, including supporting factors, counter-evidence, and evidence gaps.
+- **Stress-tests** conclusions through robustness analysis and live counterfactual investigation.
+- **Routes** cases through deterministic policy rather than allowing the AI to make the final automated disposition.
+- **Escalates** anomalous cases to human analysts for review and decision-making.
+- **Audits** investigation and decision activity for traceability.
+
+## How a transaction moves through the system
 
 ```text
 Transaction
     ↓
-Detection (deterministic anomaly scoring)
+Detection
     ↓
-Evidence Agent (Gemini Flash, agentic tool use)
+Evidence Investigation
     ↓
-Gemini Reasoning (Gemini Pro, structured findings)
+AI Reasoning
     ↓
-Decision Robustness (fast-path estimate + live counterfactual)
+Robustness Check
     ↓
-Deterministic Policy (AUTO_RESOLVE / ESCALATE only)
+Deterministic Policy
     ↓
-Firestore
-    ↓
-Analyst UI (Firebase-authenticated human review)
+Auto-Resolve / Human Review
 ```
 
-One Cloud Run service hosts both the FastAPI backend and the compiled React analyst UI -- no separate frontend hosting, no event bus, no second datastore. Firestore is V1's sole persistence layer.
+**Governing principle:**
 
-## V1 scope
+> AI investigates and reasons. Deterministic policy controls automated disposition. Humans retain authority over sensitive actions.
 
-**Built:** CNP e-commerce, outgoing, pre-authorization fraud investigation for a single payment rail. Detection → Evidence Agent → Reasoning → Robustness → Policy → human review, end to end, with real Gemini and real Firestore, no mocked production behavior.
+Escalated cases are assigned to an analyst and handled through the authenticated review workspace, with a senior-analyst escalation path when required.
 
-**Explicitly not built in V1** (see `.claude/skills/sentinel-engineering/SKILL.md` for the full list, and the frozen Contracts §34 "Build/Don't-Build boundary"): other payment rails (UPI, IMPS/NEFT/RTGS, ATM, incoming-side fraud), RAG/precedent retrieval, BigQuery, a Pub/Sub event backbone, multi-service topology, an `ADMIN` role, an analyst-management UI, a manual case claim/release workflow, real KYC/merchant API integrations, or a fine-tuned/custom model.
+## Current scope
 
-## Synthetic / mock data vs. production data
+V1 focuses on:
 
-**There is no live production fraud feed, and no connection to any real banking, customer, or merchant system.** `POST /transactions` (`shared/pipeline/orchestrator.py:resolve_scenario_for_transaction`) first tries to match the submitted `transaction_id` against a committed seed scenario (`data/seed/scenarios/`) with mocked customer/merchant/device history. A `transaction_id` matching none of them is **not rejected**: `shared/generator/synthesis.py` deterministically synthesizes a plausible customer/merchant investigation context from the transaction's own identifiers (stable `hashlib.sha256`-derived seeds -- the same identifiers always produce the same synthetic context, in any process), and the real submitted transaction is investigated through the exact same pipeline. This lets the judge-facing Transaction Console accept any valid transaction document matching the supported schema, not only the five pre-committed demo scenarios. "Unknown transaction" never means "automatic fraud" or "automatic clean" -- Detection, Evidence Agent, Reasoning, Robustness, and Policy alone determine the outcome; the context resolver never computes or implies a disposition. The Detection model is trained on a public, synthetic/anonymized credit-card fraud dataset (`data/raw/`, not committed to this repo -- see `data/raw/README.md`), evaluated on a genuine held-out split. Every Gemini call (Evidence Agent, Reasoning, live counterfactual) is real, not mocked; every Firestore read/write is real. Only the underlying transaction/customer/merchant data itself is synthetic/demo data.
+- Outgoing card-not-present e-commerce transactions
+- Pre-authorization
+- Customer, account, card, device, merchant, and location context
 
-## Authentication
+The risk model is trained on a public, anonymized credit-card fraud dataset. The investigation evidence currently comes from deterministic internal fixtures and synthetic context rather than live banking, KYC, merchant, or payment-network integrations.
 
-Analysts sign in with Firebase email/password (`ui/src/lib/auth.tsx`). The backend never trusts a client-supplied identity: every protected `/cases*` request must carry a real `Authorization: Bearer <Firebase ID token>` header, which `shared/auth/dependencies.py` verifies server-side via the Firebase Admin SDK, then resolves against a Sentinel-controlled analyst directory (Firestore `analysts/{uid}`, seeded operationally by `scripts/seed_analyst_directory.py` -- there is no analyst-management UI in V1). An authenticated-but-unregistered Firebase user is rejected (403).
+Sentinel does not claim access to a real banking fraud database or external merchant fraud system.
 
-Exactly two roles exist, always resolved server-side, never client-supplied: `ANALYST` (can `CLEAR`, `BLOCK_HOLD`, `ESCALATE_SENIOR`) and `SENIOR_ANALYST` (can `CLEAR`, `BLOCK_HOLD`, but not escalate further -- this prevents escalation loops). There is no `ADMIN` role.
+See [`docs/architecture.md`](docs/architecture.md) for the architecture, scope boundaries, and evolution beyond V1.
 
-**Demo accounts** (seeded via `scripts/seed_analyst_directory.py`, password `SentinelDemo!2026` -- disclosed here deliberately, since these are non-production demo credentials, not a real secret being exposed):
+## Beyond V1
 
-| Email | Role |
-|---|---|
-| `analyst1@sentinel.demo` | ANALYST |
-| `analyst2@sentinel.demo` | ANALYST |
-| `senior1@sentinel.demo` | SENIOR_ANALYST |
+The current prototype is intentionally focused on one transaction type. The architecture is designed to expand toward:
 
-`GET /cases` has no global queue -- it always returns only cases where `assigned_analyst_id` equals the authenticated caller's Firebase UID. Cases are assigned by deterministic round-robin (active `ANALYST`s only) the moment a case first enters `HUMAN_REVIEW`; escalating to a senior directly reassigns `assigned_analyst_id` and never re-triggers round-robin.
+- Additional payment rails and transaction types
+- Event-driven investigation at higher volume
+- Richer production evidence sources
+- Cross-transaction and fraud-ring analysis
+- Historical case and investigation intelligence
+- Production observability, governance, and security
 
-## Local setup
+The V1 → V2 evolution is described in [`docs/architecture.md`](docs/architecture.md).
+
+## Tech stack
+
+- **Backend:** Python, FastAPI, Pydantic
+- **AI:** Gemini on Vertex AI
+- **Risk model:** scikit-learn
+- **Data:** Firestore
+- **Authentication:** Firebase Authentication
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, React Router
+- **Testing:** pytest, Vitest, Testing Library
+- **Deployment:** Docker, Google Cloud Run
+
+## Running locally
 
 ### Prerequisites
 
-- Python 3.13, Node 22
-- `gcloud auth application-default login` (Application Default Credentials -- Sentinel never reads an API key; Vertex AI, Firestore, and Firebase Admin token verification all authenticate via ADC)
-- Access to the `sentinel-ai-builder-cup` GCP project (Vertex AI, Firestore, and Firebase Auth already provisioned there), or your own project with the same APIs enabled and `.env` pointed at it
+- Python 3.13
+- Node.js 22
+- Google Cloud Application Default Credentials
 
-### Backend setup
+Authenticate with Google Cloud before running services that require Vertex AI, Firestore, or Firebase Admin:
+
+```bash
+gcloud auth application-default login
+```
+
+### Backend
+
+From the repository root:
 
 ```bash
 python -m venv .venv
-.venv/Scripts/activate  # or source .venv/bin/activate on macOS/Linux
+```
+
+Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
-cp .env.example .env  # defaults already match sentinel-ai-builder-cup
+```
+
+Create the backend environment file:
+
+```bash
+cp .env.example .env
+```
+
+Start the API:
+
+```bash
 uvicorn services.api.main:app --reload --port 8000
 ```
 
-`GET /` is the health check. `POST /transactions` runs the full pipeline (no auth -- it is the pipeline's ingestion endpoint, not an analyst-facing one). `GET /cases`, `GET /cases/{case_id}`, `POST /cases/{case_id}/decision` all require a Firebase ID token.
-
-### Frontend setup
+### Frontend
 
 ```bash
 cd ui
 npm install
-cp .env.example .env  # optional -- real defaults are already baked in
-npm run dev  # http://localhost:5173, proxies API calls to VITE_API_BASE_URL
+cp .env.example .env
+npm run dev
 ```
 
-Sign in with one of the demo accounts above.
+### Tests
 
-### Seeding the analyst directory (one-time, per Firestore project)
-
-```bash
-python -m scripts.seed_analyst_directory
-```
-
-## Running tests
+Backend tests that do not require live GCP credentials or live model execution:
 
 ```bash
-# Backend: everything except real-GCP integration tests
 pytest --ignore-glob="*_live.py" --ignore=tests/data/test_trained_model.py
+```
 
-# Backend: including real Gemini/Firestore/Firebase Auth integration
-# (requires ADC and the seeded analyst directory above)
-pytest
+Frontend:
 
-# Frontend
+```bash
 cd ui
 npm run lint
-npm run build   # tsc -b && vite build
-npm run test    # vitest run
+npm run build
+npm run test
 ```
 
-CI (`.github/workflows/ci.yml`) runs the credential-free backend subset plus the full frontend job on every push/PR -- it never provisions GCP credentials, matching V1's "minimal CI" scope. The `*_live.py` files and `scripts/run_*.py`/`scripts/evaluate_*.py` evaluation scripts are how real-Gemini/Firestore/Firebase correctness is actually proven (see `eval/*.json` for the resulting artifacts); that proof happens outside CI, against real infrastructure, not by mocking it away.
+## Configuration
+
+Backend configuration is defined in:
+
+```text
+.env.example
+```
+
+Frontend configuration is defined in:
+
+```text
+ui/.env.example
+```
+
+Copy these files to their corresponding `.env` files for local development.
+
+Do not commit credentials, private keys, or populated environment files.
 
 ## Deployment
 
-One container, one Cloud Run service, built from the repo root `Dockerfile` (a multi-stage build: the React UI is compiled first, then copied into the Python/FastAPI image so one process serves both):
+Sentinel is packaged as a single container.
 
-```bash
-gcloud run deploy sentinel-v1 \
-  --source . \
-  --region us-central1 \
-  --project sentinel-ai-builder-cup \
-  --service-account sentinel-cloud-run@sentinel-ai-builder-cup.iam.gserviceaccount.com \
-  --allow-unauthenticated
-```
+The root `Dockerfile` builds the React frontend and packages it with the FastAPI backend. The resulting application runs as a single Google Cloud Run service.
 
-`sentinel-cloud-run` is least-privilege (`roles/aiplatform.user`, `roles/datastore.user` only -- never Owner/Editor). The service is network-public (`--allow-unauthenticated`) because a real analyst's browser has no GCP identity token to present at the Cloud Run layer -- Firebase Auth, enforced inside every `/cases*` endpoint, is the actual access boundary, not IAM. `POST /transactions` has no Firebase-Auth gate (it is the pipeline's system-level ingestion endpoint, not an analyst action); it is otherwise unauthenticated by design in V1, the same way it was before the analyst UI existed.
+The exact container build and deployment configuration is maintained in the repository and deployment documentation.
 
-Firestore Security Rules (`firestore.rules`, deny-all for every direct client read/write -- the backend's Admin SDK is Firestore's only writer; the browser only ever talks to Firestore through this API) are deployed via the Firebase Rules API, not just committed as a file -- re-deploy after any change:
 
-```bash
-# see the Firebase Rules REST API (firebaserules.googleapis.com) -- create a
-# ruleset from firestore.rules, then release it to the (default) database.
-```
+## Documentation
 
-## Safety boundary (frozen, see `shared/contracts/` and the ten Safety Invariants)
+- [`docs/project.md`](docs/project.md) — problem, purpose, product intent, and project direction
+- [`docs/architecture.md`](docs/architecture.md) — system architecture and V1 → V2 evolution
+- [`docs/ui.md`](docs/ui.md) — UI behavior and user experience
+- [`docs/design-system.md`](docs/design-system.md) — visual design system and UI tokens
+- [`docs/transaction_document_format.md`](docs/transaction_document_format.md) — transaction document format accepted by the public investigation console
 
-1. Gemini cannot directly execute an action.
-2. Policy cannot produce `BLOCK_HOLD` or `AUTO_DECLINE` -- its `PolicyOutcome` enum has no such members.
-3. Only a human analyst, through `POST /cases/{case_id}/decision`, can execute `BLOCK_HOLD`.
-4. Partial required evidence cannot auto-resolve.
-5. Every automated Policy decision records `rule_id` + `rule_version`.
-6. Every material reasoning factor is traceable to a specific evidence `fact_id`.
-7. Duplicate request delivery cannot create duplicate cases or side effects (Firestore-transactional idempotency).
-8. A request that exhausts its bounded retries fails safe to `ESCALATE`/`HUMAN_REVIEW`, never a silent drop or auto-resolve.
-9. Human decisions are first-valid-decision-wins: a Firestore transaction re-verifies eligibility at write time, so two concurrent decisions on the same case can never both apply, and a finalized case's disposition can never be overwritten by a later, different decision.
-10. `GET /cases` and `GET /cases/{case_id}` are scoped to the authenticated caller's own assigned cases -- there is no global queue and no way to view a case that is not yours.
+## Status
+
+Working prototype with:
+
+- Public transaction-investigation console
+- Firebase-authenticated analyst workspace
+- AI-assisted investigation pipeline
+- Deterministic policy routing
+- Human analyst decision workflow
+- Robustness and counterfactual analysis
+- Automated backend and frontend testing
+- Single-container Google Cloud Run deployment

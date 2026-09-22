@@ -11,7 +11,6 @@ Guarantees:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import time
@@ -28,6 +27,8 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+
+from scripts.lineage import compute_file_sha256
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("train_baseline")
@@ -46,15 +47,6 @@ MAX_ITER = 1000
 SOLVER = "lbfgs"
 C_PARAM = 1.0
 CLASS_WEIGHT = "balanced"
-
-
-def compute_file_sha256(filepath: Path) -> str:
-    """Compute SHA-256 hash of a file for lineage tracking."""
-    hasher = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        while chunk := f.read(65536):
-            hasher.update(chunk)
-    return hasher.hexdigest()
 
 
 def train_detection_baseline(

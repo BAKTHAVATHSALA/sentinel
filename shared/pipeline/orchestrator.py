@@ -175,6 +175,27 @@ def _decision_summary_from_document(document: dict[str, object]) -> dict[str, ob
     }
 
 
+def _duplicate_case_response(
+    store: CaseStore, directory: AnalystDirectory, case_id: str, transaction_id: str
+) -> dict[str, object]:
+    """Shared response shape for both duplicate-transaction paths: a
+    transaction_id that already has a case (normal idempotent replay) and
+    one that lost the create-race to a concurrent request. Both read the
+    same already-persisted document and describe it the same way."""
+    existing = store.get_case(case_id) or {}
+    existing_assigned_uid = existing.get("assigned_analyst_id")
+    return {
+        "case_id": case_id,
+        "transaction_id": transaction_id,
+        "state": existing.get("state"),
+        "outcome": (existing.get("policy_decision") or {}).get("outcome"),
+        "rule_id": (existing.get("policy_decision") or {}).get("rule_id"),
+        "duplicate": True,
+        "assignment": _analyst_summary(directory.get(existing_assigned_uid) if existing_assigned_uid else None),
+        "decision_summary": _decision_summary_from_document(existing),
+    }
+
+
 def resolve_scenario_for_transaction(transaction: Transaction) -> ScenarioResult:
     """Resolve the investigation context for a submitted transaction: a
     committed seed fixture if its transaction_id matches one exactly, or a
@@ -226,18 +247,7 @@ def run_pipeline(
     existing_case_id = store.get_case_id_for_transaction(transaction_id)
     if existing_case_id is not None:
         _log(existing_case_id, transaction_id, "Duplicate POST /transactions -- returning existing case")
-        existing = store.get_case(existing_case_id) or {}
-        existing_assigned_uid = existing.get("assigned_analyst_id")
-        return {
-            "case_id": existing_case_id,
-            "transaction_id": transaction_id,
-            "state": existing.get("state"),
-            "outcome": (existing.get("policy_decision") or {}).get("outcome"),
-            "rule_id": (existing.get("policy_decision") or {}).get("rule_id"),
-            "duplicate": True,
-            "assignment": _analyst_summary(directory.get(existing_assigned_uid) if existing_assigned_uid else None),
-            "decision_summary": _decision_summary_from_document(existing),
-        }
+        return _duplicate_case_response(store, directory, existing_case_id, transaction_id)
 
     scenario = resolve_scenario_for_transaction(transaction)
     case_id = f"case_{uuid.uuid4().hex[:12]}"
@@ -265,18 +275,7 @@ def run_pipeline(
     created, resolved_case_id = store.create_case_if_new(transaction_id, case_id, document)
     if not created:
         _log(resolved_case_id, transaction_id, "Lost the create race to a concurrent request -- returning its case")
-        existing = store.get_case(resolved_case_id) or {}
-        existing_assigned_uid = existing.get("assigned_analyst_id")
-        return {
-            "case_id": resolved_case_id,
-            "transaction_id": transaction_id,
-            "state": existing.get("state"),
-            "outcome": (existing.get("policy_decision") or {}).get("outcome"),
-            "rule_id": (existing.get("policy_decision") or {}).get("rule_id"),
-            "duplicate": True,
-            "assignment": _analyst_summary(directory.get(existing_assigned_uid) if existing_assigned_uid else None),
-            "decision_summary": _decision_summary_from_document(existing),
-        }
+        return _duplicate_case_response(store, directory, resolved_case_id, transaction_id)
 
     store.append_audit_event(
         case_id,
@@ -304,9 +303,9 @@ def run_pipeline(
         # Policy are still never invoked for this case either way -- only the
         # final disposition differs based on risk_band.
         if detection.risk_band == RiskBand.LOW:
-            return _resolve_clean_transaction(store, case_id, transaction_id, now, detection)
+            return _resolve_clean_transaction(store, case_id, transaction_id, detection)
         return _escalate_clean_transaction_with_elevated_risk(
-            store, case_id, transaction_id, now, detection, directory, assignment
+            store, case_id, transaction_id, detection, directory, assignment
         )
 
     try:
@@ -337,7 +336,7 @@ def run_pipeline(
 
 
 def _resolve_clean_transaction(
-    store: CaseStore, case_id: str, transaction_id: str, now: datetime, detection: DetectionOutput
+    store: CaseStore, case_id: str, transaction_id: str, detection: DetectionOutput
 ) -> dict[str, object]:
     _log(case_id, transaction_id, "No anomaly tags -- skipping investigation entirely, resolving immediately")
     resolved_at = datetime.now(timezone.utc)
@@ -370,7 +369,6 @@ def _escalate_clean_transaction_with_elevated_risk(
     store: CaseStore,
     case_id: str,
     transaction_id: str,
-    now: datetime,
     detection: DetectionOutput,
     directory: AnalystDirectory,
     assignment: AssignmentStore,

@@ -10,7 +10,6 @@ and logs split metadata to data/processed/split_metadata.json.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from pathlib import Path
@@ -18,6 +17,8 @@ from typing import Any, Dict
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
+from scripts.lineage import compute_file_sha256
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("split_dataset")
@@ -28,15 +29,6 @@ DEFAULT_PROCESSED_DIR = Path("data/processed")
 RANDOM_SEED: int = 42
 TEST_SIZE: float = 0.20
 TARGET_COLUMN: str = "Class"
-
-
-def compute_file_sha256(filepath: Path) -> str:
-    """Compute the SHA-256 hex digest of a file to verify immutability."""
-    hasher = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        while chunk := f.read(65536):
-            hasher.update(chunk)
-    return hasher.hexdigest()
 
 
 def split_credit_card_dataset(

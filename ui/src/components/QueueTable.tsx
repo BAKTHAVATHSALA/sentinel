@@ -75,6 +75,11 @@ export function QueueTable({ cases }: { cases: QueueCaseSummary[] }) {
                 </td>
                 <td className="py-2 pr-3">
                   {c.robustness_classification ? (
+                    // QueueCaseSummary carries only the classification, not the real
+                    // high-materiality factor count (that lives on CaseFindings, fetched
+                    // only on the case detail page) -- 2/1 is the glyph's minimum pillar
+                    // count for ROBUST/FRAGILE respectively, a legible approximation for
+                    // this dense row, not a claim about the real factor count.
                     <RobustnessBadge classification={c.robustness_classification} supportingCount={c.robustness_classification === "ROBUST" ? 2 : 1} />
                   ) : (
                     <span className="text-[12px] text-[var(--color-text-faint)]">not scored</span>

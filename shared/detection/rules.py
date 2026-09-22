@@ -1,6 +1,5 @@
 """Deterministic anomaly tagging rules and geographic utilities for Sentinel V1."""
 
-from datetime import datetime, timezone
 from decimal import Decimal
 import math
 

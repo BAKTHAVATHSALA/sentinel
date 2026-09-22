@@ -41,17 +41,17 @@ class AnalystDirectory:
         """List every active ANALYST-role record, for round-robin assignment
         (V1 Authoritative Ruling Part 5: SENIOR_ANALYST users are excluded from
         normal assignment)."""
-        query = self._client.collection(ANALYSTS_COLLECTION).where(
-            filter=firestore.FieldFilter("role", "==", AnalystRole.ANALYST.value)
-        ).where(filter=firestore.FieldFilter("active", "==", True))
-        return [AnalystRecord.model_validate({**(doc.to_dict() or {}), "uid": doc.id}) for doc in query.stream()]
+        return self._list_active_by_role(AnalystRole.ANALYST)
 
     def list_active_seniors(self) -> list[AnalystRecord]:
         """List every active SENIOR_ANALYST-role record, for the UI's escalation
         target dropdown (V1 Authoritative Ruling Part 4: name/email shown, raw UID
         never shown)."""
+        return self._list_active_by_role(AnalystRole.SENIOR_ANALYST)
+
+    def _list_active_by_role(self, role: AnalystRole) -> list[AnalystRecord]:
         query = self._client.collection(ANALYSTS_COLLECTION).where(
-            filter=firestore.FieldFilter("role", "==", AnalystRole.SENIOR_ANALYST.value)
+            filter=firestore.FieldFilter("role", "==", role.value)
         ).where(filter=firestore.FieldFilter("active", "==", True))
         return [AnalystRecord.model_validate({**(doc.to_dict() or {}), "uid": doc.id}) for doc in query.stream()]
 

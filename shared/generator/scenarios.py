@@ -6,7 +6,7 @@ import random
 
 from shared.contracts.detection import RiskBand
 from shared.contracts.tools import FraudReportTrend
-from shared.contracts.transaction import Channel, Geo, Transaction
+from shared.contracts.transaction import Channel, Geo
 from shared.generator.models import CustomerProfile, MerchantProfile, ScenarioResult
 from shared.generator.profiles import CITIES, create_customer_profile, create_merchant_profile
 from shared.generator.transactions import generate_normal_transactions, generate_single_transaction

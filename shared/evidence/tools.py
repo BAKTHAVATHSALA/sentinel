@@ -18,6 +18,7 @@ import time
 from pydantic import BaseModel, ValidationError
 
 from shared.contracts.fact import Fact, FactQuality
+from shared.contracts.transaction import Geo
 from shared.contracts.tools import (
     BehavioralBaselineInput,
     BehavioralBaselineOutput,
@@ -82,8 +83,6 @@ def _resolve_device_history(ctx: FixtureContext, validated: DeviceHistoryInput) 
 
 
 def _resolve_ip_geovelocity(ctx: FixtureContext, validated: IpGeovelocityInput) -> dict[str, object]:
-    from shared.contracts.transaction import Geo
-
     geo = Geo.model_validate(validated.current_geo)
     return resolve_ip_geovelocity(
         ctx, validated.customer_id, validated.current_ip, geo, validated.transaction_timestamp

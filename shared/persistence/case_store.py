@@ -103,7 +103,7 @@ class CaseStore:
             guarantees it's present even for a document written before that field existed).
         """
         query = self._client.collection(self._cases_collection).where(filter=FieldFilter("state", "==", state))
-        return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
+        return _materialize_case_query(query)
 
     def list_cases_by_state_and_assigned_analyst(self, state: str, assigned_analyst_id: str) -> list[dict[str, object]]:
         """List every case document in the given state, assigned to one analyst
@@ -120,7 +120,7 @@ class CaseStore:
             .where(filter=FieldFilter("state", "==", state))
             .where(filter=FieldFilter("assigned_analyst_id", "==", assigned_analyst_id))
         )
-        return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
+        return _materialize_case_query(query)
 
     def list_cases_by_escalated_by(self, escalated_by_analyst_id: str) -> list[dict[str, object]]:
         """List every case document this analyst has ever escalated via
@@ -141,7 +141,7 @@ class CaseStore:
         query = self._client.collection(self._cases_collection).where(
             filter=FieldFilter("escalated_by_analyst_id", "==", escalated_by_analyst_id)
         )
-        return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
+        return _materialize_case_query(query)
 
     def apply_human_decision(
         self,
@@ -203,6 +203,13 @@ class CaseStore:
         ref.set(audit_event.model_dump(mode="json"))
 
 
+def _materialize_case_query(query: firestore.Query) -> list[dict[str, object]]:
+    """Run a case query and attach each document's Firestore id as "case_id"
+    (defensive -- the field is already stored, but this guarantees it's
+    present even for a document written before that field existed)."""
+    return [{**(doc.to_dict() or {}), "case_id": doc.id} for doc in query.stream()]
+
+
 @firestore.transactional
 def _create_case_if_new_txn(
     transaction: firestore.Transaction,
@@ -250,10 +257,7 @@ def _apply_human_decision_txn(
         if document.get("state") != CaseState.HUMAN_REVIEW.value or document.get("assigned_analyst_id") != caller_uid:
             return "conflict", document
 
-        transaction.set(case_ref, updates, merge=True)
-        transaction.set(audit_ref, audit_event_dict)
-        document.update(updates)
-        return "applied", document
+        return "applied", _write_decision(transaction, case_ref, audit_ref, updates, audit_event_dict, document)
 
     # ESCALATE_SENIOR: a reassignment, never a finalization -- state stays
     # HUMAN_REVIEW throughout, so eligibility is judged on ownership, not state.
@@ -261,10 +265,7 @@ def _apply_human_decision_txn(
         return "conflict", document
 
     if document.get("assigned_analyst_id") == caller_uid:
-        transaction.set(case_ref, updates, merge=True)
-        transaction.set(audit_ref, audit_event_dict)
-        document.update(updates)
-        return "applied", document
+        return "applied", _write_decision(transaction, case_ref, audit_ref, updates, audit_event_dict, document)
 
     if document.get("assigned_analyst_id") == target_analyst_id:
         # Ownership already moved to exactly this request's target -- a
@@ -273,3 +274,19 @@ def _apply_human_decision_txn(
         return "idempotent", document
 
     return "conflict", document
+
+
+def _write_decision(
+    transaction: firestore.Transaction,
+    case_ref: firestore.DocumentReference,
+    audit_ref: firestore.DocumentReference,
+    updates: dict[str, object],
+    audit_event_dict: dict[str, object],
+    document: dict[str, object],
+) -> dict[str, object]:
+    """Write the case update and its audit event atomically within an
+    already-open transaction, and return the resulting document."""
+    transaction.set(case_ref, updates, merge=True)
+    transaction.set(audit_ref, audit_event_dict)
+    document.update(updates)
+    return document

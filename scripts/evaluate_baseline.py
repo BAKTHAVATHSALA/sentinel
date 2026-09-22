@@ -10,7 +10,6 @@ Guarantees:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from pathlib import Path
@@ -27,6 +26,8 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from scripts.lineage import compute_file_sha256
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("evaluate_baseline")
 
@@ -35,15 +36,6 @@ DEFAULT_MODEL_PATH = Path("models/sentinel_baseline_model.joblib")
 DEFAULT_X_HELD_OUT_PATH = Path("data/processed/X_held_out.parquet")
 DEFAULT_Y_HELD_OUT_PATH = Path("data/processed/y_held_out.csv")
 DEFAULT_OUTPUT_JSON_PATH = Path("eval/detection_baseline.json")
-
-
-def compute_file_sha256(filepath: Path) -> str:
-    """Compute SHA-256 hash of a file for exact evaluation lineage."""
-    hasher = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        while chunk := f.read(65536):
-            hasher.update(chunk)
-    return hasher.hexdigest()
 
 
 def evaluate_detection_baseline(
