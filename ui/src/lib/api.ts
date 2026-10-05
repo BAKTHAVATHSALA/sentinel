@@ -7,6 +7,7 @@ import type {
   QueueCaseSummary,
   Transaction,
   TransactionInvestigationResult,
+  TransactionLiveStatus,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -105,4 +106,15 @@ export function postTransaction(body: Transaction): Promise<TransactionInvestiga
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+/** GET /transactions/{transaction_id}/status -- the Transaction Console's
+ * poll target while the POST /transactions call above is still in flight, so
+ * the pipeline visualization can reflect genuine backend milestones
+ * (real Firestore writes made mid-request by run_pipeline) instead of a
+ * single simultaneous pulse. Unauthenticated, additive, and strictly less
+ * detailed than postTransaction's own final response -- see
+ * services/api/main.py:TransactionStatusResponse. */
+export function fetchTransactionStatus(transactionId: string): Promise<TransactionLiveStatus> {
+  return request<TransactionLiveStatus>(`/transactions/${encodeURIComponent(transactionId)}/status`);
 }

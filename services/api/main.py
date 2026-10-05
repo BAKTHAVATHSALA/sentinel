@@ -2,8 +2,11 @@
 S23, Build Checklist Phase 4.3/4.4/5.1).
 
 `POST /transactions` is the full pipeline entry point (Phase 4.3). `GET
-/cases`, `GET /cases/{case_id}`, and `POST /cases/{case_id}/decision` (Phase
-5.1, the analyst UI's backend) are registered from services/api/cases.py.
+/transactions/{transaction_id}/status` is an additive, public-safe polling
+target for the Transaction Console's live pipeline visualization while that
+POST is in flight -- see TransactionStatusResponse below. `GET /cases`, `GET
+/cases/{case_id}`, and `POST /cases/{case_id}/decision` (Phase 5.1, the
+analyst UI's backend) are registered from services/api/cases.py.
 `GET /api/health` is the liveness/readiness probe. `GET /` and every other
 unmatched path serve the compiled React SPA (mega-prompt Section 12: the
 bare Cloud Run URL must show the analyst login page, not a JSON payload).
@@ -20,14 +23,16 @@ from datetime import datetime, timezone
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict
 
-from services.api.cases import router as cases_router
+from services.api.cases import get_case_store, router as cases_router
 from shared.contracts.events import ErrorEnvelope
 from shared.contracts.transaction import Transaction
+from shared.persistence.case_store import CaseStore
 from shared.pipeline.orchestrator import UnknownTransactionError, run_pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
@@ -111,6 +116,57 @@ def post_transactions(transaction: Transaction) -> dict[str, object]:
             occurred_at=datetime.now(timezone.utc),
         )
         return JSONResponse(status_code=500, content=envelope.model_dump(mode="json"))
+
+
+class TransactionStatusResponse(BaseModel):
+    """Public-safe, additive progress projection for the Transaction Console's
+    pipeline visualization: exposes only the real `CaseState` and whether each
+    downstream artifact (evidence_bundle/robustness/policy_decision) has been
+    written yet -- never the artifacts themselves. Same "public-safe
+    distillation" precedent as _decision_summary in shared/pipeline/
+    orchestrator.py, not a new category of exposure.
+
+    POST /transactions is a single synchronous call that only returns once
+    the whole pipeline finishes, but run_pipeline() writes each state
+    transition to Firestore as it happens, mid-request. This endpoint is the
+    read side of that already-real progress: the frontend polls it while the
+    POST is in flight so the pipeline visualization can reflect genuine
+    backend milestones instead of a single simultaneous pulse. It never
+    determines case ownership and is intentionally unauthenticated, exactly
+    like POST /transactions itself -- it returns strictly less detail than
+    that endpoint's own final response.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str | None
+    state: str | None
+    has_evidence_bundle: bool
+    has_robustness: bool
+    has_policy_decision: bool
+
+
+@app.get("/transactions/{transaction_id}/status")
+def get_transaction_status(transaction_id: str, store: CaseStore = Depends(get_case_store)) -> TransactionStatusResponse:
+    """Poll target for the Transaction Console while POST /transactions for
+    this transaction_id is still in flight. No case yet (pipeline hasn't
+    reached its first Firestore write) returns an all-null/false response,
+    never a 404 -- "not started yet" is an expected, normal state here, not
+    an error."""
+    case_id = store.get_case_id_for_transaction(transaction_id)
+    if case_id is None:
+        return TransactionStatusResponse(
+            case_id=None, state=None, has_evidence_bundle=False, has_robustness=False, has_policy_decision=False
+        )
+
+    document = store.get_case(case_id) or {}
+    return TransactionStatusResponse(
+        case_id=case_id,
+        state=document.get("state"),
+        has_evidence_bundle=document.get("evidence_bundle") is not None,
+        has_robustness=document.get("robustness") is not None,
+        has_policy_decision=document.get("policy_decision") is not None,
+    )
 
 
 # Compiled React UI (mega-prompt Section 12: "serve compiled frontend from

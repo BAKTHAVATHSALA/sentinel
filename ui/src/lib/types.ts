@@ -299,3 +299,17 @@ export interface TransactionInvestigationResult {
   assignment: AssignmentSummary | null;
   decision_summary: DecisionSummary;
 }
+
+/** GET /transactions/{transaction_id}/status response (services/api/main.py:
+ * TransactionStatusResponse) -- the Transaction Console's poll target while
+ * POST /transactions for this transaction_id is still in flight. `case_id`/
+ * `state` are null until the pipeline's first Firestore write lands; the
+ * three `has_*` booleans are the only signal of downstream progress --
+ * never the evidence/robustness/policy content itself. */
+export interface TransactionLiveStatus {
+  case_id: string | null;
+  state: CaseState | null;
+  has_evidence_bundle: boolean;
+  has_robustness: boolean;
+  has_policy_decision: boolean;
+}

@@ -121,6 +121,39 @@ describe("InvestigationConsolePage", () => {
     await waitFor(() => expect(postSpy).toHaveBeenCalledWith(expect.objectContaining({ transaction_id: "tx_single" })));
   });
 
+  it("polls GET /transactions/{id}/status for real progress while the investigation is running, and stops once it resolves", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let resolvePost: (value: typeof AUTO_RESOLVE_RESULT) => void;
+    vi.spyOn(api, "postTransaction").mockImplementation(
+      () => new Promise((resolve) => { resolvePost = resolve; }),
+    );
+    const statusSpy = vi.spyOn(api, "fetchTransactionStatus").mockResolvedValue({
+      case_id: "case_clean_0001",
+      state: "DETECTED",
+      has_evidence_bundle: false,
+      has_robustness: false,
+      has_policy_decision: false,
+    });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    renderConsole();
+
+    await user.click(screen.getByText("Simulate single upload"));
+    await user.click(screen.getByRole("button", { name: "Investigate Transaction" }));
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(statusSpy).toHaveBeenCalledWith("tx_single");
+    const callsWhileRunning = statusSpy.mock.calls.length;
+    expect(callsWhileRunning).toBeGreaterThan(0);
+
+    resolvePost!(AUTO_RESOLVE_RESULT);
+    await vi.waitFor(() => expect(screen.getByText("AUTO-RESOLVED")).toBeInTheDocument());
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(statusSpy.mock.calls.length).toBe(callsWhileRunning); // no further polling after the real result landed
+
+    vi.useRealTimers();
+  });
+
   it("renders AUTO_RESOLVE with no analyst assignment", async () => {
     vi.spyOn(api, "postTransaction").mockResolvedValue(AUTO_RESOLVE_RESULT);
     const user = userEvent.setup();

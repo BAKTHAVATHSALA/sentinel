@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { postTransaction, ApiError } from "../lib/api";
+import { postTransaction, fetchTransactionStatus, ApiError } from "../lib/api";
 import { UploadDropzone } from "../components/UploadDropzone";
 import { SingleTransactionPreview } from "../components/SingleTransactionPreview";
 import { InvestigationResultPanel } from "../components/InvestigationResultPanel";
@@ -8,7 +8,13 @@ import { BatchInvestigationView } from "../components/BatchInvestigationView";
 import { CaseDetailError } from "../components/StateNotices";
 import type { ParsedRecordError } from "../lib/documentParser";
 import type { JourneyPhase } from "../components/InvestigationJourney";
-import type { Transaction, TransactionInvestigationResult } from "../lib/types";
+import type { Transaction, TransactionInvestigationResult, TransactionLiveStatus } from "../lib/types";
+
+/** How often to poll GET /transactions/{id}/status while the real POST
+ * /transactions call is in flight. This is a poll of real, already-written
+ * backend state (shared/pipeline/orchestrator.py's mid-request Firestore
+ * writes) -- not a countdown standing in for the pipeline's actual work. */
+const LIVE_STATUS_POLL_INTERVAL_MS = 400;
 
 /**
  * The public Transaction Investigation Console (build.md). Genuinely
@@ -25,27 +31,60 @@ export function InvestigationConsolePage() {
   const [singlePhase, setSinglePhase] = useState<JourneyPhase>("idle");
   const [singleResult, setSingleResult] = useState<TransactionInvestigationResult | null>(null);
   const [singleError, setSingleError] = useState<string | null>(null);
+  const [singleLiveStatus, setSingleLiveStatus] = useState<TransactionLiveStatus | null>(null);
+  const livePollHandle = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopLivePolling() {
+    if (livePollHandle.current !== null) {
+      clearInterval(livePollHandle.current);
+      livePollHandle.current = null;
+    }
+  }
+
+  // Stop polling if the console unmounts (navigating away) while a real
+  // investigation is still in flight -- never leaves a timer calling
+  // setState on an unmounted component.
+  useEffect(() => stopLivePolling, []);
 
   function handleParsed(parsed: Transaction[], errors: ParsedRecordError[]) {
+    stopLivePolling();
     setTransactions(parsed);
     setParseErrors(errors);
     setSinglePhase("idle");
     setSingleResult(null);
     setSingleError(null);
+    setSingleLiveStatus(null);
   }
 
   function reset() {
+    stopLivePolling();
     setTransactions(null);
     setParseErrors([]);
     setSinglePhase("idle");
     setSingleResult(null);
     setSingleError(null);
+    setSingleLiveStatus(null);
   }
 
   async function investigateSingle() {
     if (!transactions || transactions.length !== 1) return;
+    const transactionId = transactions[0].transaction_id;
     setSinglePhase("running");
     setSingleError(null);
+    setSingleLiveStatus(null);
+
+    // Poll the real backend's genuine, already-written per-stage progress
+    // (services/api/main.py's GET /transactions/{id}/status) while the
+    // single POST /transactions call below is in flight. A poll failure
+    // (e.g. an older backend without this endpoint) is swallowed so the
+    // journey falls back to its existing simultaneous-pulse display --
+    // never surfaced as an investigation error.
+    livePollHandle.current = setInterval(() => {
+      fetchTransactionStatus(transactionId)
+        .then(setSingleLiveStatus)
+        .catch(() => {});
+    }, LIVE_STATUS_POLL_INTERVAL_MS);
+
     try {
       const result = await postTransaction(transactions[0]);
       setSingleResult(result);
@@ -53,6 +92,8 @@ export function InvestigationConsolePage() {
     } catch (err) {
       setSingleError(err instanceof ApiError ? err.message : "Could not investigate this transaction.");
       setSinglePhase("request-failed");
+    } finally {
+      stopLivePolling();
     }
   }
 
@@ -88,7 +129,12 @@ export function InvestigationConsolePage() {
         ) : (
           <div className="flex flex-col gap-4">
             {singleError && <CaseDetailError message={singleError} onRetry={() => setSinglePhase("idle")} />}
-            <InvestigationResultPanel phase={singlePhase} result={singleResult} transaction={transactions![0]} />
+            <InvestigationResultPanel
+              phase={singlePhase}
+              result={singleResult}
+              transaction={transactions![0]}
+              liveStatus={singleLiveStatus}
+            />
             {(singlePhase === "done" || singlePhase === "request-failed") && (
               <button
                 type="button"

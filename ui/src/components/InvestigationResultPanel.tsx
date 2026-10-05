@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { InvestigationJourney, type JourneyPhase } from "./InvestigationJourney";
 import { AnomalyTagChip } from "./AnomalyTagChip";
-import type { DecisionSummary, Transaction, TransactionInvestigationResult } from "../lib/types";
+import type { DecisionSummary, Transaction, TransactionInvestigationResult, TransactionLiveStatus } from "../lib/types";
 
 /**
  * Renders exactly what POST /transactions returned -- nothing more. The
@@ -24,10 +24,12 @@ export function InvestigationResultPanel({
   phase,
   result,
   transaction,
+  liveStatus,
 }: {
   phase: JourneyPhase;
   result: TransactionInvestigationResult | null;
   transaction: Transaction;
+  liveStatus?: TransactionLiveStatus | null;
 }) {
   const label =
     result?.state === "HUMAN_REVIEW" ? "HUMAN REVIEW" : result?.state === "AUTO_RESOLVED" ? "AUTO-RESOLVED" : result?.state;
@@ -58,7 +60,7 @@ export function InvestigationResultPanel({
       </div>
 
       <div className="overflow-x-auto py-1">
-        <InvestigationJourney phase={phase} result={result} />
+        <InvestigationJourney phase={phase} result={result} liveStatus={liveStatus} />
       </div>
 
       {phase === "running" && (
