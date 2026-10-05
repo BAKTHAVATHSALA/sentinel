@@ -119,7 +119,7 @@ export function HumanDecisionPanel({
                 <option value="">Select a senior analyst&hellip;</option>
                 {caseDoc.available_seniors?.map((senior) => (
                   <option key={senior.uid} value={senior.uid}>
-                    {senior.display_name} ({senior.email})
+                    {senior.display_name}
                   </option>
                 ))}
               </select>

@@ -86,8 +86,9 @@ describe("HumanDecisionPanel", () => {
 
     await user.selectOptions(screen.getByLabelText(/Escalate to/), "uid_senior_1");
     expect(confirmButton).toBeEnabled();
-    // The senior's name/email are shown; the raw UID never appears as visible text.
-    expect(screen.getByText(/Elena Cho/)).toBeInTheDocument();
+    // Only the senior's display name is shown -- never their email or raw UID.
+    expect(screen.getByText("Elena Cho")).toBeInTheDocument();
+    expect(screen.queryByText(/senior1@sentinel\.demo/)).not.toBeInTheDocument();
     expect(screen.queryByText("uid_senior_1")).not.toBeInTheDocument();
   });
 
