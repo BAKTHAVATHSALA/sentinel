@@ -93,10 +93,10 @@ export function InvestigationResultPanel({
               )}
 
               {/* Primary next step for HUMAN_REVIEW: demonstrate the protected
-                  analyst investigation. Requires Firebase login and the
-                  existing assigned-analyst ownership check -- unchanged. */}
+                  analyst investigation. For demo cases, opens the demo sandbox;
+                  for production cases, requires Firebase login. */}
               <Link
-                to={`/case/${encodeURIComponent(result.case_id)}`}
+                to={caseLink(result, transaction)}
                 className="mt-4 inline-block border border-[var(--color-rule-strong)] bg-[var(--color-surface-raised)] px-4 py-2 text-[13px] text-[var(--color-text)] hover:border-[var(--color-text-muted)]"
               >
                 Open Case
@@ -110,7 +110,7 @@ export function InvestigationResultPanel({
                 Case: <span className="font-mono">{result.case_id}</span>
               </p>
               <Link
-                to={`/case/${encodeURIComponent(result.case_id)}`}
+                to={caseLink(result, transaction)}
                 className="mt-3 inline-block border border-[var(--color-rule)] px-3 py-1.5 text-[13px] text-[var(--color-text)] hover:border-[var(--color-rule-strong)]"
               >
                 Open Case
@@ -121,6 +121,13 @@ export function InvestigationResultPanel({
       )}
     </div>
   );
+}
+
+/** Demo transactions open the Demo Analyst queue (pre-seeded demo cases),
+ * regardless of who the pipeline assigned; real cases open the analyst portal. */
+function caseLink(result: TransactionInvestigationResult, transaction: Transaction): string {
+  const isDemo = result.case_id.startsWith("demo_") || transaction.transaction_id.startsWith("tx_demo_");
+  return isDemo ? "/demo" : `/case/${encodeURIComponent(result.case_id)}`;
 }
 
 function ChecklistItem({ children }: { children: string }) {

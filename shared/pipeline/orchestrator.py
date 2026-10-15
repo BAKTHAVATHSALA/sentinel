@@ -215,6 +215,14 @@ def resolve_scenario_for_transaction(transaction: Transaction) -> ScenarioResult
     for scenario in load_all_scenarios().values():
         if scenario.target_transaction.transaction_id == transaction.transaction_id:
             return scenario
+    if transaction.transaction_id.startswith("tx_demo_clean"):
+        clean_sc = load_all_scenarios().get("clean_normal")
+        if clean_sc:
+            return clean_sc
+    if transaction.transaction_id.startswith("tx_demo_fraud") or transaction.transaction_id.startswith("tx_demo_high_risk"):
+        fraud_sc = load_all_scenarios().get("signature_fraud") or load_all_scenarios().get("branching_proof")
+        if fraud_sc:
+            return fraud_sc
     return synthesize_scenario_for_transaction(transaction)
 
 

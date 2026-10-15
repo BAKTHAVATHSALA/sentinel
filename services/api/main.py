@@ -30,6 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict
 
 from services.api.cases import get_case_store, router as cases_router
+from services.api.demo import router as demo_router
 from shared.contracts.events import ErrorEnvelope
 from shared.contracts.transaction import Transaction
 from shared.persistence.case_store import CaseStore
@@ -70,10 +71,11 @@ app.add_middleware(
     # gap went undetected until real cross-origin browser testing surfaced
     # it -- see services/api/cases.py's list_cases/get_case docstrings for
     # what these two headers carry.
-    expose_headers=["X-Analyst-Display-Name", "X-Analyst-Role"],
+    expose_headers=["X-Analyst-Display-Name", "X-Analyst-Role", "X-Sentinel-Demo-Session"],
 )
 
 app.include_router(cases_router)
+app.include_router(demo_router)
 
 
 @app.get("/api/health")

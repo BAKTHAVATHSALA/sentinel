@@ -96,3 +96,76 @@ function NextSteps() {
     </div>
   );
 }
+
+export function DemoDecisionConfirmationScreen({ decision }: { decision: DecisionResponse }) {
+  const isEscalation = decision.final_disposition === null;
+
+  if (isEscalation) {
+    return (
+      <div className="mx-auto max-w-[560px] p-6">
+        <div className="border border-[var(--color-caution)] bg-[var(--color-caution-soft)] p-5">
+          <p className="text-[16px] text-[var(--color-caution)]">Case Escalated Successfully</p>
+          <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">
+            Case: <span className="font-mono text-[var(--color-text)]">{decision.case_id}</span>
+          </p>
+          <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
+            Status: <span className="text-[var(--color-text)]">{decision.state}</span>
+          </p>
+          {decision.target_analyst_display_name && (
+            <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
+              Assigned to: <span className="text-[var(--color-text)] font-medium">{decision.target_analyst_display_name}</span>
+            </p>
+          )}
+          <p className="mt-3 text-[13px] text-[var(--color-text-muted)]">
+            Ownership of this case has moved to the selected senior analyst. You no longer have access to it.
+          </p>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Link
+            to="/investigate"
+            className="border border-[var(--color-rule-strong)] bg-[var(--color-surface-raised)] px-3 py-1.5 text-[13px] text-[var(--color-text)]"
+          >
+            Back to Transaction Console
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isBlockHold = decision.final_disposition === "BLOCK_HOLD";
+  const title = isBlockHold ? "Transaction Blocked / Held" : "Case Cleared";
+  const accentColor = isBlockHold ? "var(--color-critical)" : "var(--color-stable)";
+  const accentSoft = isBlockHold ? "var(--color-critical-soft)" : "var(--color-stable-soft)";
+  return (
+    <div className="mx-auto max-w-[560px] p-6">
+      <div className="border p-5" style={{ borderColor: accentColor, backgroundColor: accentSoft }}>
+        <p className="text-[16px]" style={{ color: accentColor }}>
+          {title}
+        </p>
+        <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">
+          Case: <span className="font-mono text-[var(--color-text)]">{decision.case_id}</span>
+        </p>
+        <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
+          Decision: <span className="text-[var(--color-text)]">{decision.final_disposition}</span>
+        </p>
+        <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
+          Actor: <span className="text-[var(--color-text)]">Demo Analyst</span>
+        </p>
+        <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
+          Decided at: <span className="text-[var(--color-text)]">{decision.decided_at}</span>
+        </p>
+        <p className="mt-3 text-[13px] text-[var(--color-text-muted)]">
+          This decision is finalized ({decision.state}). No further action is available on this case.
+        </p>
+      </div>
+      <div className="mt-4 flex gap-2">
+        <Link
+          to="/investigate"
+          className="border border-[var(--color-rule-strong)] bg-[var(--color-surface-raised)] px-3 py-1.5 text-[13px] text-[var(--color-text)]"
+        >
+          Back to Transaction Console
+        </Link>
+      </div>
+    </div>
+  );
+}

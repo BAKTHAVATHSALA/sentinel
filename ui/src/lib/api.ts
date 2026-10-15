@@ -12,10 +12,33 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+export function formatErrorDetail(detail: unknown): string {
+  if (!detail) return "";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (typeof item === "object" && item !== null) {
+          const loc = Array.isArray(item.loc) ? item.loc.slice(1).join(".") : "";
+          const msg = item.msg || item.message || JSON.stringify(item);
+          return loc ? `${loc}: ${msg}` : msg;
+        }
+        return String(item);
+      })
+      .join("; ");
+  }
+  if (typeof detail === "object" && detail !== null) {
+    const obj = detail as Record<string, any>;
+    return obj.message || obj.msg || JSON.stringify(detail);
+  }
+  return String(detail);
+}
+
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
-    super(message);
+  constructor(status: number, message: unknown) {
+    super(formatErrorDetail(message) || "Request failed");
     this.status = status;
   }
 }

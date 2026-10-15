@@ -69,7 +69,10 @@ export function QueueTable({ cases }: { cases: QueueCaseSummary[] }) {
                   />
                 </td>
                 <td className="py-2 pr-3">
-                  <Link to={`/case/${c.case_id}`} className="focus-visible:outline focus-visible:outline-2">
+                  <Link
+                    to={c.case_id.startsWith("demo_") ? `/demo/case/${encodeURIComponent(c.case_id)}` : `/case/${c.case_id}`}
+                    className="focus-visible:outline focus-visible:outline-2"
+                  >
                     <RiskBadge band={c.risk_band} />
                   </Link>
                 </td>

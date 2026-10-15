@@ -6,6 +6,9 @@ import { InvestigationConsolePage } from "./pages/InvestigationConsolePage";
 import { LoginPage } from "./pages/LoginPage";
 import { useAuth } from "./lib/auth";
 
+import { DemoCaseQueuePage } from "./pages/DemoCaseQueuePage";
+import { DemoCaseDetailPage } from "./pages/DemoCaseDetailPage";
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="p-6 text-[13px] text-[var(--color-text-faint)]">Loading...</div>;
@@ -49,6 +52,14 @@ export function App() {
         "/case/:caseId" (the Analyst Portal) stay behind RequireAuth.
       */}
       <Route path="/investigate" element={<InvestigationConsolePage />} />
+
+      {/*
+        Sentinel Demo Mode for hackathon judges: unauthenticated, fully isolated
+        demo sandbox routes with server-issued capabilities and zero access to
+        production cases or credentials.
+      */}
+      <Route path="/demo" element={<DemoCaseQueuePage />} />
+      <Route path="/demo/case/:caseId" element={<DemoCaseDetailPage />} />
     </Routes>
   );
 }

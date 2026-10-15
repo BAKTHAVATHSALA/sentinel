@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { postTransaction, fetchTransactionStatus, ApiError } from "../lib/api";
+import { fetchDemoSampleTransactions, ensureDemoSession } from "../lib/demoApi";
 import { UploadDropzone } from "../components/UploadDropzone";
 import { SingleTransactionPreview } from "../components/SingleTransactionPreview";
 import { InvestigationResultPanel } from "../components/InvestigationResultPanel";
@@ -25,6 +26,9 @@ const LIVE_STATUS_POLL_INTERVAL_MS = 400;
  * behind RequireAuth) is a deliberately separate experience.
  */
 export function InvestigationConsolePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isDemoMode, setIsDemoMode] = useState(() => searchParams.get("demo") === "true");
+
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [parseErrors, setParseErrors] = useState<ParsedRecordError[]>([]);
 
@@ -32,6 +36,7 @@ export function InvestigationConsolePage() {
   const [singleResult, setSingleResult] = useState<TransactionInvestigationResult | null>(null);
   const [singleError, setSingleError] = useState<string | null>(null);
   const [singleLiveStatus, setSingleLiveStatus] = useState<TransactionLiveStatus | null>(null);
+  const [demoLoading, setDemoLoading] = useState(false);
   const livePollHandle = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function stopLivePolling() {
@@ -39,6 +44,23 @@ export function InvestigationConsolePage() {
       clearInterval(livePollHandle.current);
       livePollHandle.current = null;
     }
+  }
+
+  // A status call can take several seconds (Firestore round trips); never
+  // start a new one while the previous is pending, or they pile up and
+  // exhaust the browser's per-host connections, stalling later requests.
+  function startLivePolling(transactionId: string) {
+    let inFlight = false;
+    livePollHandle.current = setInterval(() => {
+      if (inFlight) return;
+      inFlight = true;
+      fetchTransactionStatus(transactionId)
+        .then(setSingleLiveStatus)
+        .catch(() => {})
+        .finally(() => {
+          inFlight = false;
+        });
+    }, LIVE_STATUS_POLL_INTERVAL_MS);
   }
 
   // Stop polling if the console unmounts (navigating away) while a real
@@ -66,6 +88,63 @@ export function InvestigationConsolePage() {
     setSingleLiveStatus(null);
   }
 
+  async function handleRunDemoTransaction(type: "clean" | "high_risk") {
+    setDemoLoading(true);
+    setSingleError(null);
+    setSingleResult(null);
+    setSingleLiveStatus(null);
+    stopLivePolling();
+
+    try {
+      await ensureDemoSession();
+      let tx: Transaction;
+      try {
+        const samples = await fetchDemoSampleTransactions();
+        const baseTx = type === "clean" ? samples.clean : samples.high_risk;
+        tx = {
+          ...baseTx,
+          transaction_id: `tx_demo_${type === "clean" ? "clean" : "fraud"}_${Date.now()}`,
+        };
+      } catch {
+        tx = {
+          transaction_id: `tx_demo_${type === "clean" ? "clean" : "fraud"}_${Date.now()}`,
+          customer_id: type === "clean" ? "cust_sc_clean" : "cust_sc_flagship",
+          account_id: "acc_demo",
+          card_id: "card_demo",
+          merchant_id: type === "clean" ? "merch_standard_clean" : "merch_flagship_electronics",
+          amount: type === "clean" ? "75.00" : "1249.99",
+          currency: "USD",
+          timestamp: new Date().toISOString(),
+          payment_rail: "CARD_CNP",
+          direction: "OUTGOING",
+          authorization_stage: "PRE_AUTH",
+          device_id: type === "clean" ? "dev_46048" : "dev_compromised_99",
+          ip_address: type === "clean" ? "198.51.100.72" : "203.0.113.19",
+          geo: { lat: "37.7749", lon: "-122.4194", country: "USA" },
+          channel: "WEB",
+          merchant_category: "electronics",
+          card_present: false,
+        };
+      }
+
+      setTransactions([tx]);
+      setSinglePhase("running");
+
+      // Poll the real backend's genuine, already-written per-stage progress
+      startLivePolling(tx.transaction_id);
+
+      const result = await postTransaction(tx);
+      setSingleResult(result);
+      setSinglePhase("done");
+    } catch (err: any) {
+      setSingleError(err instanceof ApiError ? err.message : "Could not investigate this demo transaction.");
+      setSinglePhase("request-failed");
+    } finally {
+      stopLivePolling();
+      setDemoLoading(false);
+    }
+  }
+
   async function investigateSingle() {
     if (!transactions || transactions.length !== 1) return;
     const transactionId = transactions[0].transaction_id;
@@ -73,17 +152,7 @@ export function InvestigationConsolePage() {
     setSingleError(null);
     setSingleLiveStatus(null);
 
-    // Poll the real backend's genuine, already-written per-stage progress
-    // (services/api/main.py's GET /transactions/{id}/status) while the
-    // single POST /transactions call below is in flight. A poll failure
-    // (e.g. an older backend without this endpoint) is swallowed so the
-    // journey falls back to its existing simultaneous-pulse display --
-    // never surfaced as an investigation error.
-    livePollHandle.current = setInterval(() => {
-      fetchTransactionStatus(transactionId)
-        .then(setSingleLiveStatus)
-        .catch(() => {});
-    }, LIVE_STATUS_POLL_INTERVAL_MS);
+    startLivePolling(transactionId);
 
     try {
       const result = await postTransaction(transactions[0]);
@@ -102,27 +171,107 @@ export function InvestigationConsolePage() {
 
   return (
     <div className="mx-auto max-w-[900px] px-6 py-10">
-      <header className="mb-8 flex items-start justify-between">
+      <header className="mb-6 flex items-start justify-between">
         <div>
-          <p className="text-[12px] tracking-wide text-[var(--color-text-faint)]">SENTINEL</p>
-          <h1 className="mt-1 text-[22px] text-[var(--color-text)]">Transaction Investigation Console</h1>
+          <div className="flex items-center gap-2">
+            <p className="text-[12px] tracking-wide text-[var(--color-text-faint)]">SENTINEL</p>
+            {isDemoMode && (
+              <span className="rounded bg-[var(--color-caution-soft)] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-[var(--color-caution)]">
+                DEMO MODE
+              </span>
+            )}
+          </div>
+          <h1 className="mt-1 text-[22px] text-[var(--color-text)]">
+            {isDemoMode ? "Sentinel Demo Console" : "Transaction Investigation Console"}
+          </h1>
           <p className="mt-2 max-w-[520px] text-[13px] text-[var(--color-text-muted)]">
-            Upload a transaction and let Sentinel investigate the evidence behind suspicious activity.
+            {isDemoMode
+              ? "Run synthetic transactions through Sentinel's live backend pipeline to observe genuine investigation stages."
+              : "Upload a transaction and let Sentinel investigate the evidence behind suspicious activity."}
           </p>
           <p className="mt-1 max-w-[520px] text-[12px] text-[var(--color-text-faint)]">
             AI investigates and explains. Deterministic policy controls automated disposition.
           </p>
-          <p className="mt-1 max-w-[520px] text-[11px] text-[var(--color-text-faint)]">
-            Prototype environment uses synthetic investigation context.
-          </p>
         </div>
-        <Link to="/login" className="mt-1 shrink-0 text-[12px] text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)]">
-          Analyst Login
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          {!isDemoMode ? (
+            <>
+              <Link to="/login" className="mt-1 shrink-0 text-[12px] text-[var(--color-text-faint)] hover:text-[var(--color-text-muted)]">
+                Analyst Login
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDemoMode(true);
+                  setSearchParams({ demo: "true" });
+                  reset();
+                }}
+                className="border border-[var(--color-caution)] bg-[var(--color-caution-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-caution)] hover:bg-[var(--color-surface-raised)]"
+              >
+                Try Demo
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setIsDemoMode(false);
+                setSearchParams({});
+                reset();
+              }}
+              className="border border-[var(--color-rule-strong)] bg-[var(--color-surface-raised)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            >
+              Exit Demo Mode
+            </button>
+          )}
+        </div>
       </header>
 
-      {transactions === null && <UploadDropzone onParsed={handleParsed} />}
+      {/* When in Demo Mode: ONLY this demo banner is visible (no dropzone, no explore demo cases button) */}
+      {isDemoMode && (
+        <div className="mb-6 border border-[var(--color-rule)] bg-[var(--color-surface)] p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-[var(--color-caution-soft)] px-2 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--color-caution)]">
+                  HACKATHON DEMO MODE
+                </span>
+                <span className="text-[13px] font-medium text-[var(--color-text)]">Explore Without Credentials</span>
+              </div>
+              <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">
+                Run clean or high-risk synthetic transactions live through the real backend.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={demoLoading}
+                onClick={() => handleRunDemoTransaction("clean")}
+                className="border border-[var(--color-rule-strong)] bg-[var(--color-surface-raised)] px-2.5 py-1 text-[12px] text-[var(--color-text)] hover:border-[var(--color-text-muted)] disabled:opacity-50"
+              >
+                {demoLoading && singlePhase === "running" && transactions?.[0]?.transaction_id.includes("clean")
+                  ? "Investigating..."
+                  : "Run Clean Transaction"}
+              </button>
+              <button
+                type="button"
+                disabled={demoLoading}
+                onClick={() => handleRunDemoTransaction("high_risk")}
+                className="border border-[var(--color-caution)] bg-[var(--color-caution-soft)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-caution)] hover:bg-[var(--color-surface-raised)] disabled:opacity-50"
+              >
+                {demoLoading && singlePhase === "running" && !transactions?.[0]?.transaction_id.includes("clean")
+                  ? "Investigating..."
+                  : "Run High-Risk Transaction"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* In standard mode, render normal dropzone / manual upload */}
+      {!isDemoMode && transactions === null && <UploadDropzone onParsed={handleParsed} />}
+
+      {/* Investigation results panel for single transaction (in both demo and standard mode) */}
       {isSingle &&
         (singlePhase === "idle" ? (
           <SingleTransactionPreview transaction={transactions![0]} onInvestigate={investigateSingle} onReset={reset} />
@@ -135,7 +284,7 @@ export function InvestigationConsolePage() {
               transaction={transactions![0]}
               liveStatus={singleLiveStatus}
             />
-            {(singlePhase === "done" || singlePhase === "request-failed") && (
+            {!isDemoMode && (singlePhase === "done" || singlePhase === "request-failed") && (
               <button
                 type="button"
                 onClick={reset}
@@ -147,7 +296,9 @@ export function InvestigationConsolePage() {
           </div>
         ))}
 
-      {isBatch && <BatchInvestigationView transactions={transactions!} parseErrors={parseErrors} onReset={reset} />}
+      {!isDemoMode && isBatch && (
+        <BatchInvestigationView transactions={transactions!} parseErrors={parseErrors} onReset={reset} />
+      )}
     </div>
   );
 }
